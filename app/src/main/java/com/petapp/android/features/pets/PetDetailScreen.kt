@@ -1,5 +1,6 @@
 package com.petapp.android.features.pets
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -106,6 +107,7 @@ fun PetDetailScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
+        BackHandler(onBack = onBack)
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }

@@ -1,5 +1,6 @@
 package com.petapp.android.features.sharing
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -91,6 +92,7 @@ fun CompartirMascotaScreen(
             .background(Color.White)
             .verticalScroll(rememberScrollState()),
     ) {
+        BackHandler(onBack = onBack)
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }

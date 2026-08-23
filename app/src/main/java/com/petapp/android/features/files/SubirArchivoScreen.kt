@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -132,6 +133,7 @@ private fun SubirArchivoStep(
             .background(Color.White)
             .verticalScroll(rememberScrollState()),
     ) {
+        BackHandler(onBack = onBack)
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }
@@ -274,6 +276,7 @@ private fun ArchivoSeleccionadoStep(
             .background(Color.White)
             .verticalScroll(rememberScrollState()),
     ) {
+        BackHandler(onBack = onBack)
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }

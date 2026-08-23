@@ -1,6 +1,7 @@
 package com.petapp.android.features.pets
 
 import android.graphics.BitmapFactory
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -162,6 +163,7 @@ fun RegisterPetScreen(
                 .padding(top = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            BackHandler(onBack = onSkip)
             IconButton(onClick = onSkip) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
             }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -227,6 +228,7 @@ private fun IncidenciaFormContent(
             .background(Color.White)
             .verticalScroll(rememberScrollState()),
     ) {
+        BackHandler(onBack = onBack)
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }

@@ -2,6 +2,7 @@ package com.petapp.android
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,14 +43,20 @@ class MainActivity : ComponentActivity() {
                     AppScreen.Onboarding -> OnboardingScreen(
                         onGetStarted = { screen = AppScreen.Login },
                     )
-                    AppScreen.Login -> LoginScreen(
-                        onLoginSuccess = { screen = AppScreen.CheckingPets },
-                        onNavigateToRegister = { screen = AppScreen.Register },
-                    )
-                    AppScreen.Register -> RegisterScreen(
-                        onRegisterSuccess = { screen = AppScreen.CheckingPets },
-                        onNavigateToLogin = { screen = AppScreen.Login },
-                    )
+                    AppScreen.Login -> {
+                        BackHandler { screen = AppScreen.Onboarding }
+                        LoginScreen(
+                            onLoginSuccess = { screen = AppScreen.CheckingPets },
+                            onNavigateToRegister = { screen = AppScreen.Register },
+                        )
+                    }
+                    AppScreen.Register -> {
+                        BackHandler { screen = AppScreen.Login }
+                        RegisterScreen(
+                            onRegisterSuccess = { screen = AppScreen.CheckingPets },
+                            onNavigateToLogin = { screen = AppScreen.Login },
+                        )
+                    }
                     AppScreen.CheckingPets -> PetsGateScreen(
                         onHasPets = { screen = AppScreen.Main },
                         onNoPets = { screen = AppScreen.RegisterPet },

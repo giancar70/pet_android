@@ -187,10 +187,10 @@ private fun DewormingSection(state: DewormingListUiState) {
                     icon = Icons.Filled.Medication,
                     title = "Sin registros de desparasitación",
                     description = "Añade una desparasitación o sube una foto del producto.",
-                    primaryLabel = "Añadir manualmente",
-                    primarySublabel = "Registrar desparasitación",
-                    secondaryLabel = null,
-                    secondarySublabel = null,
+                    primaryLabel = null,
+                    primarySublabel = null,
+                    secondaryLabel = "Añadir manualmente",
+                    secondarySublabel = "Registrar desparasitación",
 
                 )
             } else {
@@ -220,10 +220,10 @@ private fun ConsultasSection(state: ConsultasListUiState) {
                     icon = Icons.Filled.MedicalServices,
                     title = "No hay consultas registradas",
                     description = "Registra el motivo, diagnóstico y tratamiento de la última visita al veterinario.",
-                    primaryLabel = "Añadir manualmente",
-                    primarySublabel = "Registrar consulta",
-                    secondaryLabel = null,
-                    secondarySublabel = null,
+                    primaryLabel = null,
+                    primarySublabel = null,
+                    secondaryLabel = "Añadir manualmente",
+                    secondarySublabel = "Registrar consulta",
                 )
             } else {
                 RecordList {
@@ -254,10 +254,10 @@ private fun IncidenciasSection(state: IncidenciasListUiState) {
                     icon = Icons.Filled.ReportProblem,
                     title = "No hay incidencias registradas",
                     description = "Registra algo que le haya pasado a tu mascota para llevar un mejor historial.",
-                    primaryLabel = "Añadir manualmente",
-                    primarySublabel = "Registrar incidencia",
-                    secondaryLabel = null,
-                    secondarySublabel = null,
+                    primaryLabel = null,
+                    primarySublabel = null,
+                    secondaryLabel = "Añadir manualmente",
+                    secondarySublabel =  "Registrar incidencia",
                 )
             } else {
                 RecordList {
@@ -284,10 +284,10 @@ private fun RecordatoriosSection(state: RecordatoriosListUiState) {
                     icon = Icons.Filled.CalendarMonth,
                     title = "No hay recordatorios",
                     description = "Añade un recordatorio para no olvidar vacunas, desparasitaciones o controles.",
-                    primaryLabel = "Añadir manualmente",
-                    primarySublabel = "Añadir recordatorio",
-                    secondaryLabel = null,
-                    secondarySublabel = null,
+                    primaryLabel = null,
+                    primarySublabel = null,
+                    secondaryLabel = "Añadir manualmente",
+                    secondarySublabel = "Añadir recordatorio",
                 )
             } else {
                 RecordList {
@@ -391,8 +391,8 @@ private fun EmptyStateCard(
     icon: ImageVector,
     title: String,
     description: String,
-    primaryLabel: String,
-    primarySublabel: String,
+    primaryLabel: String?,
+    primarySublabel: String?,
     secondaryLabel: String?,
     secondarySublabel: String?,
 ) {
@@ -413,23 +413,25 @@ private fun EmptyStateCard(
                     .background(PlaceholderIconBg),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
             }
             Spacer(modifier = Modifier.height(12.dp))
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = description, color = SubtitleGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+            Text(text = description, color = SubtitleGray, fontSize = 12.sp, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                ActionChip(
-                    icon = Icons.Filled.AddAPhoto,
-                    label = primaryLabel,
-                    sublabel = primarySublabel,
-                    modifier = Modifier.weight(1f),
-                )
+                if (primaryLabel != null && primarySublabel != null) {
+                    ActionChip(
+                        icon = Icons.Filled.AddAPhoto,
+                        label = primaryLabel,
+                        sublabel = primarySublabel,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 if (secondaryLabel != null && secondarySublabel != null) {
                     ActionChip(
                         icon = Icons.Filled.Edit,
@@ -453,8 +455,8 @@ private fun ActionChip(icon: ImageVector, label: String, sublabel: String, modif
         Column(modifier = Modifier.padding(10.dp)) {
             Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.height(6.dp))
-            Text(text = label, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            Text(text = sublabel, color = SubtitleGray, fontSize = 11.sp)
+            Text(text = label, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text(text = sublabel, color = SubtitleGray, fontSize = 10.sp)
         }
     }
 }

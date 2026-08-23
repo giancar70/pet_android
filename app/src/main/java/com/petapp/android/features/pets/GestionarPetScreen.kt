@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -57,6 +58,7 @@ fun GestionarPetScreen(
             .background(ContentBackground)
             .verticalScroll(rememberScrollState()),
     ) {
+        BackHandler(onBack = onBack)
         IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }
