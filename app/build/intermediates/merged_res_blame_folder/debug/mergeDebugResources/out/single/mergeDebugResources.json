@@ -1,0 +1,102 @@
+[
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xhdpi_ic_launcher_foreground.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-mdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/raw_privacy_policy.pdf.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/raw/privacy_policy.pdf"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xxhdpi_ic_launcher_foreground.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xxhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-hdpi_ic_launcher_foreground.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-hdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xxxhdpi_ic_launcher_foreground.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xxxhdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/xml_network_security_config.xml.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/xml/network_security_config.xml"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/raw_terms_and_conditions.pdf.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/raw/terms_and_conditions.pdf"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-mdpi_ic_launcher.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-mdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/drawable-nodpi_onboarding_pets.jpg.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/drawable-nodpi/onboarding_pets.jpg"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-mdpi_ic_launcher_foreground.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-mdpi/ic_launcher_foreground.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/drawable-nodpi_splash_logo.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/drawable-nodpi/splash_logo.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/drawable_ic_launcher_background.xml.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-hdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.petapp.android.app-debug-50:/drawable_main_dog.png.flat",
+        "source": "com.petapp.android.app-main-52:/drawable/main_dog.png"
+    },
+    {
+        "merged": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-debug-50:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "/Users/giancarlo/.gradle/daemon/8.9/com.petapp.android.app-main-52:/mipmap-xxxhdpi/ic_launcher_round.png"
+    }
+]
