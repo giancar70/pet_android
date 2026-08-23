@@ -5,8 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,7 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,6 +61,7 @@ import com.petapp.android.features.reminders.RecordatoriosListUiState
 import com.petapp.android.features.reminders.RemindersViewModel
 import com.petapp.android.features.vaccines.VaccinesListUiState
 import com.petapp.android.features.vaccines.VaccinesViewModel
+import com.petapp.android.ui.theme.PetProjectTheme
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -402,34 +405,35 @@ private fun EmptyStateCard(
         border = BorderStroke(1.dp, CardBorder),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(PlaceholderIconBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(PlaceholderIconBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(text = description, color = SubtitleGray, fontSize = 11.sp, lineHeight = 16.sp)
+                }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = description, color = SubtitleGray, fontSize = 12.sp, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
             ) {
                 if (primaryLabel != null && primarySublabel != null) {
                     ActionChip(
                         icon = Icons.Filled.AddAPhoto,
                         label = primaryLabel,
                         sublabel = primarySublabel,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
                 if (secondaryLabel != null && secondarySublabel != null) {
@@ -437,7 +441,7 @@ private fun EmptyStateCard(
                         icon = Icons.Filled.Edit,
                         label = secondaryLabel,
                         sublabel = secondarySublabel,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
             }
@@ -457,6 +461,24 @@ private fun ActionChip(icon: ImageVector, label: String, sublabel: String, modif
             Spacer(modifier = Modifier.height(6.dp))
             Text(text = label, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             Text(text = sublabel, color = SubtitleGray, fontSize = 10.sp)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun EmptyStateCardPreview() {
+    PetProjectTheme {
+        Box(modifier = Modifier.padding(24.dp)) {
+            EmptyStateCard(
+                icon = Icons.Filled.Vaccines,
+                title = "No hay vacunas registradas",
+                description = "Sube una cartilla o registra la última vacuna aplicada.",
+                primaryLabel = "Capturar documento",
+                primarySublabel = "Escanear, subir PDF o foto",
+                secondaryLabel = "Añadir manualmente",
+                secondarySublabel = "Registrar vacuna",
+            )
         }
     }
 }
