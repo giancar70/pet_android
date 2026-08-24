@@ -95,8 +95,19 @@ fun PetDetailScreen(
     var activeDialog by remember { mutableStateOf<DetailField?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
 
+    // PetsViewModel is shared (Activity-scoped, no Navigation-Compose back stack), so a
+    // prior successful update can still be sitting in updateState when this screen
+    // re-enters. Resetting it races the effect below (collectAsState's initial value may
+    // already have latched onto the stale Success), so consumedInitialState instead
+    // always ignores the first firing regardless of what it sees, and only acts on a
+    // later, genuine Success from this screen's own save.
     LaunchedEffect(Unit) { viewModel.resetUpdateState() }
+    var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(updateState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
         if (updateState is UpdatePetUiState.Success) onBack()
     }
 

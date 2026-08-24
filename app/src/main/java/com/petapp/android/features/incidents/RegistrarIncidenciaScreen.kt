@@ -153,13 +153,20 @@ private fun IncidenciaFormContent(
     var showTimePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
-    // IncidentsViewModel is Activity-scoped (no Navigation-Compose back stack), so a
-    // prior success would otherwise still be sitting in createState and bounce this
-    // screen straight to the success step via the LaunchedEffect below.
+    // IncidentsViewModel is Activity-scoped, so a prior success can still be sitting
+    // in createState when this screen re-enters. Resetting it races the effect below
+    // (collectAsState's initial value may already have latched onto the stale Success),
+    // so consumedInitialState instead always ignores the first firing regardless of what
+    // it sees, and only acts on a later, genuine Success from this screen's own save.
     LaunchedEffect(Unit) {
         viewModel.resetCreateState()
     }
+    var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
         val state = createState
         if (state is CreateEventUiState.Success) {
             onSaved(

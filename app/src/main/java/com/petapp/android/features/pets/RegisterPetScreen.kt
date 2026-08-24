@@ -99,11 +99,16 @@ fun RegisterPetScreen(
     var validationError by remember { mutableStateOf<String?>(null) }
 
     // PetsViewModel is shared (Activity-scoped, no Navigation-Compose back stack), so a
-    // prior successful creation would otherwise still be sitting in createState and bounce
-    // this screen straight back out via the LaunchedEffect below.
+    // prior successful creation can still be sitting in createState when this screen
+    // re-enters (e.g. "add another pet" from the switcher). Resetting it here races the
+    // LaunchedEffect(createState) below (collectAsState's initial value may already have
+    // latched onto the stale Success before the reset's StateFlow emission propagates),
+    // so consumedInitialState instead always ignores the first firing regardless of what
+    // it sees, and only acts on a later, genuine Success from this screen's own save.
     LaunchedEffect(Unit) {
         viewModel.resetCreateState()
     }
+    var consumedInitialState by remember { mutableStateOf(false) }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -118,6 +123,10 @@ fun RegisterPetScreen(
     }
 
     LaunchedEffect(createState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
         if (createState is CreatePetUiState.Success) onDone()
     }
 

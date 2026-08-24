@@ -130,12 +130,23 @@ private fun DesparasitacionFormContent(
     var validationError by remember { mutableStateOf<String?>(null) }
 
     // DewormingViewModel is Activity-scoped (no Navigation-Compose back stack), so a
-    // prior success would otherwise still be sitting in createState and bounce this
-    // screen straight to the success step via the LaunchedEffect below.
+    // prior success can still be sitting in createState when this screen re-enters —
+    // resetting it here races the LaunchedEffect(createState) below (collectAsState's
+    // initial value may already have latched onto the stale Success before the reset's
+    // StateFlow emission propagates), which could bounce straight to the success step.
+    // Guarding with consumedInitialState sidesteps the race entirely: the first firing
+    // of LaunchedEffect(createState) is always ignored regardless of what it sees, and
+    // only a later, genuine transition (Loading -> Success from this screen's own save)
+    // triggers onSaved.
     LaunchedEffect(Unit) {
         viewModel.resetCreateState()
     }
+    var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
         if (createState is CreateDewormingUiState.Success) {
             onSaved()
         }
