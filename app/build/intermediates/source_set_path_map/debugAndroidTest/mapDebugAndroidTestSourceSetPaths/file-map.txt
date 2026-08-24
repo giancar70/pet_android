@@ -1,0 +1,4 @@
+com.petapp.android.test.app-androidTest-0 /Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/build/generated/res/resValues/androidTest/debug
+com.petapp.android.test.app-mergeDebugAndroidTestResources-1 /Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
+com.petapp.android.test.app-mergeDebugAndroidTestResources-2 /Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
+com.petapp.android.test.app-debugAndroidTest-3 /Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/build/intermediates/merged_res/debugAndroidTest/mergeDebugAndroidTestResources
