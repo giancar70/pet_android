@@ -29,7 +29,9 @@ import com.petapp.android.core.model.Pet
 import com.petapp.android.features.account.MiCuentaScreen
 import com.petapp.android.features.account.PdfViewerScreen
 import com.petapp.android.features.account.PrivacidadScreen
+import com.petapp.android.features.consultations.ConsultaDetailScreen
 import com.petapp.android.features.consultations.RegistrarConsultaScreen
+import com.petapp.android.features.deworming.DesparasitacionDetailScreen
 import com.petapp.android.features.deworming.RegistrarDesparasitacionScreen
 import com.petapp.android.features.files.SubirArchivoScreen
 import com.petapp.android.features.incidents.RegistrarIncidenciaScreen
@@ -41,6 +43,7 @@ import com.petapp.android.features.pets.RegisterPetScreen
 import com.petapp.android.features.reminders.AnadirRecordatorioScreen
 import com.petapp.android.features.sharing.CompartirMascotaScreen
 import com.petapp.android.features.vaccines.RegistrarVacunaScreen
+import com.petapp.android.features.vaccines.VacunaDetailScreen
 import kotlinx.coroutines.launch
 
 private val BrandGreen = Color(0xFF406E5F)
@@ -75,6 +78,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
 
     var currentTab by remember { mutableStateOf(MainTab.INICIO) }
     var pendingActivityFilter by remember { mutableStateOf<ActivityCategory?>(null) }
+    var activityDetail by remember { mutableStateOf<Pair<ActivityCategory, String>?>(null) }
     var showAddPet by remember { mutableStateOf(false) }
     var showPetSwitcher by remember { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
@@ -93,6 +97,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var petDetail by remember { mutableStateOf<Pet?>(null) }
 
     val currentPetDetail = petDetail
+    val currentActivityDetail = activityDetail
     when {
         currentPetDetail != null -> {
             PetDetailScreen(
@@ -100,6 +105,31 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onBack = { petDetail = null },
                 viewModel = petsViewModel,
             )
+            return
+        }
+        currentActivityDetail != null -> {
+            val (category, id) = currentActivityDetail
+            when (category) {
+                ActivityCategory.VACCINE -> VacunaDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    doseId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.DEWORMING -> DesparasitacionDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    applicationId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.CONSULTA -> ConsultaDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    consultationId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.INCIDENCIA -> Unit
+            }
             return
         }
         showAddPet -> {
@@ -368,6 +398,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onMoreClick = { showMoreOptions = true },
                 initialFilter = pendingActivityFilter,
                 onFilterConsumed = { pendingActivityFilter = null },
+                onItemClick = { category, id -> activityDetail = category to id },
                 modifier = contentModifier,
             )
             MainTab.MAS -> MasTab(

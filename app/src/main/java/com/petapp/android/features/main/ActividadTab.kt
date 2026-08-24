@@ -77,6 +77,7 @@ fun ActividadTab(
     onMoreClick: () -> Unit = {},
     initialFilter: ActivityCategory? = null,
     onFilterConsumed: () -> Unit = {},
+    onItemClick: (ActivityCategory, String) -> Unit = { _, _ -> },
     vaccinesViewModel: VaccinesViewModel = viewModel(),
     dewormingViewModel: DewormingViewModel = viewModel(),
     consultationsViewModel: ConsultationsViewModel = viewModel(),
@@ -104,6 +105,7 @@ fun ActividadTab(
                     onMoreClick = onMoreClick,
                     initialFilter = initialFilter,
                     onFilterConsumed = onFilterConsumed,
+                    onItemClick = onItemClick,
                     vaccinesViewModel = vaccinesViewModel,
                     dewormingViewModel = dewormingViewModel,
                     consultationsViewModel = consultationsViewModel,
@@ -151,6 +153,7 @@ private enum class ActivityFilter(val label: String, val category: ActivityCateg
 enum class ActivityCategory { VACCINE, DEWORMING, CONSULTA, INCIDENCIA }
 
 private data class ActivityItem(
+    val id: String,
     val category: ActivityCategory,
     val instant: Instant,
     val icon: ImageVector,
@@ -165,6 +168,7 @@ private fun ActivityFeed(
     onMoreClick: () -> Unit,
     initialFilter: ActivityCategory?,
     onFilterConsumed: () -> Unit,
+    onItemClick: (ActivityCategory, String) -> Unit,
     vaccinesViewModel: VaccinesViewModel,
     dewormingViewModel: DewormingViewModel,
     consultationsViewModel: ConsultationsViewModel,
@@ -203,6 +207,7 @@ private fun ActivityFeed(
                 if (instant != null) {
                     add(
                         ActivityItem(
+                            id = dose.id,
                             category = ActivityCategory.VACCINE,
                             instant = instant,
                             icon = Icons.Filled.Vaccines,
@@ -221,6 +226,7 @@ private fun ActivityFeed(
                         ?: "Aplicada el ${spanishShortDate(instant)}"
                     add(
                         ActivityItem(
+                            id = application.id,
                             category = ActivityCategory.DEWORMING,
                             instant = instant,
                             icon = Icons.Filled.Medication,
@@ -236,6 +242,7 @@ private fun ActivityFeed(
                 if (instant != null) {
                     add(
                         ActivityItem(
+                            id = consultation.id,
                             category = ActivityCategory.CONSULTA,
                             instant = instant,
                             icon = Icons.Filled.MedicalServices,
@@ -252,6 +259,7 @@ private fun ActivityFeed(
                 if (instant != null) {
                     add(
                         ActivityItem(
+                            id = event.id,
                             category = ActivityCategory.INCIDENCIA,
                             instant = instant,
                             icon = Icons.Filled.ReportProblem,
@@ -266,7 +274,12 @@ private fun ActivityFeed(
         }
     }
 
-    var selectedFilter by remember(initialFilter) {
+    // Captured once per mount (no key): ActivityFeed fully unmounts whenever the user
+    // leaves the Actividad tab (MainScaffold's `when` only composes the active tab), so
+    // a fresh mount is guaranteed on every "Ver todo" navigation. Keying this on
+    // initialFilter would re-seed it when the one-shot consumption below clears
+    // initialFilter back to null moments later, undoing the filter before it's visible.
+    var selectedFilter by remember {
         mutableStateOf(ActivityFilter.entries.firstOrNull { it.category == initialFilter } ?: ActivityFilter.TODOS)
     }
     val filteredItems = items.filter { selectedFilter.category == null || it.category == selectedFilter.category }
@@ -307,7 +320,9 @@ private fun ActivityFeed(
                 modifier = Modifier.padding(vertical = 12.dp),
             )
             else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                filteredItems.forEach { item -> ActivityRow(item) }
+                filteredItems.forEach { item ->
+                    ActivityRow(item, onClick = { onItemClick(item.category, item.id) })
+                }
             }
         }
         Spacer(modifier = Modifier.height(88.dp))
@@ -330,11 +345,14 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ActivityRow(item: ActivityItem) {
+private fun ActivityRow(item: ActivityItem, onClick: (ActivityItem) -> Unit) {
+    val clickable = item.category != ActivityCategory.INCIDENCIA
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
         border = BorderStroke(1.dp, CardBorder),
+        onClick = { if (clickable) onClick(item) },
+        enabled = clickable,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(

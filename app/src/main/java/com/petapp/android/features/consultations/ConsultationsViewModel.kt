@@ -25,12 +25,35 @@ sealed interface ConsultasListUiState {
     data class Error(val message: String) : ConsultasListUiState
 }
 
+sealed interface ConsultaDetailUiState {
+    data object Loading : ConsultaDetailUiState
+    data class Loaded(val consultation: Consultation) : ConsultaDetailUiState
+    data class Error(val message: String) : ConsultaDetailUiState
+}
+
 class ConsultationsViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateConsultaUiState>(CreateConsultaUiState.Idle)
     val createState: StateFlow<CreateConsultaUiState> = _createState.asStateFlow()
 
     private val _listState = MutableStateFlow<ConsultasListUiState>(ConsultasListUiState.Loading)
     val listState: StateFlow<ConsultasListUiState> = _listState.asStateFlow()
+
+    private val _detailState = MutableStateFlow<ConsultaDetailUiState>(ConsultaDetailUiState.Loading)
+    val detailState: StateFlow<ConsultaDetailUiState> = _detailState.asStateFlow()
+
+    fun fetchConsultaDetail(petId: String, consultationId: String) {
+        _detailState.value = ConsultaDetailUiState.Loading
+        viewModelScope.launch {
+            try {
+                val consultation: Consultation = ApiClient.get(ApiEndpoints.petConsultationDetail(petId, consultationId))
+                _detailState.value = ConsultaDetailUiState.Loaded(consultation)
+            } catch (e: ApiError.ServerError) {
+                _detailState.value = ConsultaDetailUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _detailState.value = ConsultaDetailUiState.Error(e.message ?: "No se pudo cargar la consulta.")
+            }
+        }
+    }
 
     fun fetchConsultas(petId: String) {
         _listState.value = ConsultasListUiState.Loading

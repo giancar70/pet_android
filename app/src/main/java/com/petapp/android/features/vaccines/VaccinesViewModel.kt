@@ -25,12 +25,35 @@ sealed interface VaccinesListUiState {
     data class Error(val message: String) : VaccinesListUiState
 }
 
+sealed interface VaccineDoseDetailUiState {
+    data object Loading : VaccineDoseDetailUiState
+    data class Loaded(val dose: VaccineDose) : VaccineDoseDetailUiState
+    data class Error(val message: String) : VaccineDoseDetailUiState
+}
+
 class VaccinesViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateVaccineDoseUiState>(CreateVaccineDoseUiState.Idle)
     val createState: StateFlow<CreateVaccineDoseUiState> = _createState.asStateFlow()
 
     private val _listState = MutableStateFlow<VaccinesListUiState>(VaccinesListUiState.Loading)
     val listState: StateFlow<VaccinesListUiState> = _listState.asStateFlow()
+
+    private val _detailState = MutableStateFlow<VaccineDoseDetailUiState>(VaccineDoseDetailUiState.Loading)
+    val detailState: StateFlow<VaccineDoseDetailUiState> = _detailState.asStateFlow()
+
+    fun fetchVacunaDetail(petId: String, doseId: String) {
+        _detailState.value = VaccineDoseDetailUiState.Loading
+        viewModelScope.launch {
+            try {
+                val dose: VaccineDose = ApiClient.get(ApiEndpoints.petVaccineDoseDetail(petId, doseId))
+                _detailState.value = VaccineDoseDetailUiState.Loaded(dose)
+            } catch (e: ApiError.ServerError) {
+                _detailState.value = VaccineDoseDetailUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _detailState.value = VaccineDoseDetailUiState.Error(e.message ?: "No se pudo cargar la vacuna.")
+            }
+        }
+    }
 
     fun fetchVacunas(petId: String) {
         _listState.value = VaccinesListUiState.Loading

@@ -25,12 +25,36 @@ sealed interface DewormingListUiState {
     data class Error(val message: String) : DewormingListUiState
 }
 
+sealed interface DewormingDetailUiState {
+    data object Loading : DewormingDetailUiState
+    data class Loaded(val application: DewormingApplication) : DewormingDetailUiState
+    data class Error(val message: String) : DewormingDetailUiState
+}
+
 class DewormingViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateDewormingUiState>(CreateDewormingUiState.Idle)
     val createState: StateFlow<CreateDewormingUiState> = _createState.asStateFlow()
 
     private val _listState = MutableStateFlow<DewormingListUiState>(DewormingListUiState.Loading)
     val listState: StateFlow<DewormingListUiState> = _listState.asStateFlow()
+
+    private val _detailState = MutableStateFlow<DewormingDetailUiState>(DewormingDetailUiState.Loading)
+    val detailState: StateFlow<DewormingDetailUiState> = _detailState.asStateFlow()
+
+    fun fetchDesparasitacionDetail(petId: String, applicationId: String) {
+        _detailState.value = DewormingDetailUiState.Loading
+        viewModelScope.launch {
+            try {
+                val application: DewormingApplication =
+                    ApiClient.get(ApiEndpoints.petDewormingApplicationDetail(petId, applicationId))
+                _detailState.value = DewormingDetailUiState.Loaded(application)
+            } catch (e: ApiError.ServerError) {
+                _detailState.value = DewormingDetailUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _detailState.value = DewormingDetailUiState.Error(e.message ?: "No se pudo cargar la desparasitación.")
+            }
+        }
+    }
 
     fun fetchDesparasitaciones(petId: String) {
         _listState.value = DewormingListUiState.Loading
