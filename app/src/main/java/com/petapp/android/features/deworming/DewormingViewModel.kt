@@ -51,10 +51,8 @@ class DewormingViewModel : ViewModel() {
         petId: String,
         dewormingType: String,
         appliedOnIso: String,
-        administrationRoute: String?,
-        presentation: String?,
+        nextDueOnIso: String?,
         productName: String?,
-        weightKg: String?,
         notes: String?,
     ) {
         _createState.value = CreateDewormingUiState.Loading
@@ -63,10 +61,8 @@ class DewormingViewModel : ViewModel() {
                 val request = CreateDewormingApplicationRequest(
                     dewormingType = dewormingType,
                     appliedOn = appliedOnIso,
-                    administrationRoute = administrationRoute,
-                    presentation = presentation,
+                    nextDueOn = nextDueOnIso,
                     productName = productName?.takeIf { it.isNotBlank() },
-                    weightKgAtApplication = weightKg?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
                 )
                 val application: DewormingApplication =

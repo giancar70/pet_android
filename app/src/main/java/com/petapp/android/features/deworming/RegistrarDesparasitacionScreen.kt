@@ -30,18 +30,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,8 +57,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.petapp.android.core.model.AdministrationRoute
-import com.petapp.android.core.model.DewormingPresentation
 import com.petapp.android.core.model.DewormingType
 import com.petapp.android.core.model.Pet
 import com.petapp.android.features.incidents.SuccessCheckmark
@@ -79,6 +73,12 @@ private val CardBorder = Color(0xFFEFEFF4)
 private sealed interface DesparasitacionStep {
     data object Form : DesparasitacionStep
     data object Success : DesparasitacionStep
+}
+
+private sealed interface Duracion {
+    data object OneMonth : Duracion
+    data object ThreeMonths : Duracion
+    data object Custom : Duracion
 }
 
 @Composable
@@ -123,9 +123,8 @@ private fun DesparasitacionFormContent(
     var tipo by remember { mutableStateOf(DewormingType.INTERNAL) }
     var date by remember { mutableStateOf(LocalDate.now()) }
     var producto by remember { mutableStateOf("") }
-    var presentacion by remember { mutableStateOf(DewormingPresentation.TABLET) }
-    var via by remember { mutableStateOf(AdministrationRoute.ORAL) }
-    var peso by remember { mutableStateOf("") }
+    var duracion by remember { mutableStateOf<Duracion>(Duracion.OneMonth) }
+    var duracionMesesCustom by remember { mutableStateOf("") }
     var observaciones by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -145,6 +144,11 @@ private fun DesparasitacionFormContent(
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
+            },
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -257,35 +261,41 @@ private fun DesparasitacionFormContent(
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
+                Text(text = "Duración*", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DropdownSelector(
-                        label = "Presentación",
-                        selected = presentacion,
-                        options = DewormingPresentation.entries,
-                        optionLabel = { it.label },
-                        onSelected = { presentacion = it },
+                    TypeChip(
+                        label = "1 mes",
+                        selected = duracion is Duracion.OneMonth,
+                        onClick = { duracion = Duracion.OneMonth },
                         modifier = Modifier.weight(1f),
                     )
-                    DropdownSelector(
-                        label = "Vía",
-                        selected = via,
-                        options = AdministrationRoute.entries,
-                        optionLabel = { it.label },
-                        onSelected = { via = it },
+                    TypeChip(
+                        label = "3 meses",
+                        selected = duracion is Duracion.ThreeMonths,
+                        onClick = { duracion = Duracion.ThreeMonths },
                         modifier = Modifier.weight(1f),
                     )
+                    TypeChip(
+                        label = "Otro",
+                        selected = duracion is Duracion.Custom,
+                        onClick = { duracion = Duracion.Custom },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (duracion is Duracion.Custom) {
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
-                        value = peso,
-                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() || c == '.' }) peso = it },
-                        label = { Text("Peso") },
-                        placeholder = { Text("Kg") },
+                        value = duracionMesesCustom,
+                        onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) duracionMesesCustom = it },
+                        placeholder = { Text("N° de meses") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = CardBorder,
                             focusedBorderColor = BrandGreen,
                         ),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -332,20 +342,26 @@ private fun DesparasitacionFormContent(
             Button(
                 onClick = {
                     val petId = selectedPet?.id
-                    if (petId == null) {
-                        validationError = "Agrega una mascota primero."
-                    } else {
-                        validationError = null
-                        viewModel.createDesparasitacion(
-                            petId = petId,
-                            dewormingType = tipo.apiValue,
-                            appliedOnIso = date.toString(),
-                            administrationRoute = via.apiValue,
-                            presentation = presentacion.apiValue,
-                            productName = producto,
-                            weightKg = peso,
-                            notes = observaciones,
-                        )
+                    val duracionMeses = when (duracion) {
+                        Duracion.OneMonth -> 1L
+                        Duracion.ThreeMonths -> 3L
+                        Duracion.Custom -> duracionMesesCustom.toLongOrNull()
+                    }
+                    when {
+                        petId == null -> validationError = "Agrega una mascota primero."
+                        duracion is Duracion.Custom && duracionMeses == null ->
+                            validationError = "Ingresa la duración en meses."
+                        else -> {
+                            validationError = null
+                            viewModel.createDesparasitacion(
+                                petId = petId,
+                                dewormingType = tipo.apiValue,
+                                appliedOnIso = date.toString(),
+                                nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
+                                productName = producto,
+                                notes = observaciones,
+                            )
+                        }
                     }
                 },
                 enabled = !isLoading,
@@ -393,50 +409,6 @@ private fun TypeChip(label: String, selected: Boolean, onClick: () -> Unit, modi
             modifier = modifier,
         ) {
             Text(text = label, fontSize = 13.sp, maxLines = 1)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun <T> DropdownSelector(
-    label: String,
-    selected: T,
-    options: List<T>,
-    optionLabel: (T) -> String,
-    onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = modifier,
-    ) {
-        OutlinedTextField(
-            value = optionLabel(selected),
-            onValueChange = {},
-            readOnly = true,
-            singleLine = true,
-            label = { Text(label, fontSize = 12.sp) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = CardBorder,
-                focusedBorderColor = BrandGreen,
-            ),
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-        )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    },
-                )
-            }
         }
     }
 }

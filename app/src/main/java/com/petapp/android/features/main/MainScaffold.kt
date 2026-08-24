@@ -352,12 +352,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 selectedPet = selectedPet,
                 userFullName = userFullName,
                 onSwitchPetClick = { showPetSwitcher = true },
-                onAnadirVacuna = { showAnadirVacuna = true },
-                onAnadirDesparasitacion = { showAnadirDesparasitacion = true },
-                onRegistrarConsulta = { showRegistrarConsulta = true },
-                onRegistrarIncidencia = { showRegistrarIncidencia = true },
-                onAnadirRecordatorio = { showAnadirRecordatorio = true },
-                onCapturarDocumento = { showSubirArchivo = true },
+                onMoreClick = { showMoreOptions = true },
                 modifier = contentModifier,
             )
             MainTab.MAS -> MasTab(
