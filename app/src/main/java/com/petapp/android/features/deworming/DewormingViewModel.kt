@@ -52,6 +52,7 @@ class DewormingViewModel : ViewModel() {
         dewormingType: String,
         appliedOnIso: String,
         nextDueOnIso: String?,
+        durationMonths: Int?,
         productName: String?,
         notes: String?,
     ) {
@@ -62,6 +63,7 @@ class DewormingViewModel : ViewModel() {
                     dewormingType = dewormingType,
                     appliedOn = appliedOnIso,
                     nextDueOn = nextDueOnIso,
+                    durationMonths = durationMonths,
                     productName = productName?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
                 )

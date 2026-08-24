@@ -369,6 +369,7 @@ private fun DesparasitacionFormContent(
                                 dewormingType = tipo.apiValue,
                                 appliedOnIso = date.toString(),
                                 nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
+                                durationMonths = duracionMeses?.toInt(),
                                 productName = producto,
                                 notes = observaciones,
                             )
