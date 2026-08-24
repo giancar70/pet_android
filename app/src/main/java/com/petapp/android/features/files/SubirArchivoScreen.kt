@@ -70,9 +70,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Pet
 import com.petapp.android.features.main.GreetingHeader
+import java.io.File
 import java.text.DecimalFormat
 import java.time.Instant
 import java.time.ZoneId
@@ -132,6 +134,71 @@ fun SubirArchivoScreen(
             onViewActivity = onViewActivity,
             onUploadAnother = { step = UploadStep.Picker },
         )
+    }
+}
+
+// Mirrors SubirArchivoScreen's Picker -> Selected -> Success flow, but the "Picker" step
+// launches the device camera immediately instead of a file picker. Reuses the same
+// review/upload (ArchivoSeleccionadoStep) and success (DocumentoGuardadoStep) steps.
+@Composable
+fun CapturarDocumentoScreen(
+    selectedPet: Pet?,
+    userFullName: String?,
+    onBack: () -> Unit,
+    onViewActivity: () -> Unit,
+    viewModel: FilesViewModel = viewModel(),
+) {
+    var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
+
+    when (val current = step) {
+        is UploadStep.Picker -> CapturaDocumentoStep(
+            onBack = onBack,
+            onCaptured = { step = UploadStep.Selected(it) },
+        )
+        is UploadStep.Selected -> ArchivoSeleccionadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onBack = { step = UploadStep.Picker },
+            onUploaded = { step = UploadStep.Success(current.file) },
+            viewModel = viewModel,
+        )
+        is UploadStep.Success -> DocumentoGuardadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onViewActivity = onViewActivity,
+            onUploadAnother = { step = UploadStep.Picker },
+        )
+    }
+}
+
+@Composable
+private fun CapturaDocumentoStep(
+    onBack: () -> Unit,
+    onCaptured: (SelectedFile) -> Unit,
+) {
+    val context = LocalContext.current
+    var pendingUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success ->
+        val uri = pendingUri
+        if (success && uri != null) {
+            onCaptured(readFileMeta(context, uri))
+        } else {
+            onBack()
+        }
+    }
+
+    // Fires the camera intent as soon as this step is entered — there's no picker UI of
+    // our own to show first, matching "just open the camera" rather than a custom scanner.
+    LaunchedEffect(Unit) {
+        val file = File(context.cacheDir, "captura_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        pendingUri = uri
+        cameraLauncher.launch(uri)
     }
 }
 

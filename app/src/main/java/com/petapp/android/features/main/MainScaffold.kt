@@ -33,6 +33,7 @@ import com.petapp.android.features.consultations.ConsultaDetailScreen
 import com.petapp.android.features.consultations.RegistrarConsultaScreen
 import com.petapp.android.features.deworming.DesparasitacionDetailScreen
 import com.petapp.android.features.deworming.RegistrarDesparasitacionScreen
+import com.petapp.android.features.files.CapturarDocumentoScreen
 import com.petapp.android.features.files.DocumentDetailScreen
 import com.petapp.android.features.files.SubirArchivoScreen
 import com.petapp.android.features.incidents.IncidenciaDetailScreen
@@ -90,6 +91,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showAnadirDesparasitacion by remember { mutableStateOf(false) }
     var showRegistrarConsulta by remember { mutableStateOf(false) }
     var showSubirArchivo by remember { mutableStateOf(false) }
+    var showCapturarDocumento by remember { mutableStateOf(false) }
     var showAnadirRecordatorio by remember { mutableStateOf(false) }
     var showCompartirMascota by remember { mutableStateOf(false) }
     var showMiCuenta by remember { mutableStateOf(false) }
@@ -212,6 +214,19 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onBack = { showSubirArchivo = false },
                 onViewActivity = {
                     showSubirArchivo = false
+                    pendingActivityFilter = ActivityCategory.DOCUMENT
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showCapturarDocumento -> {
+            CapturarDocumentoScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showCapturarDocumento = false },
+                onViewActivity = {
+                    showCapturarDocumento = false
                     pendingActivityFilter = ActivityCategory.DOCUMENT
                     currentTab = MainTab.ACTIVIDAD
                 },
@@ -348,6 +363,10 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 dismiss()
                 showSubirArchivo = true
             },
+            onCapturarDocumento = {
+                dismiss()
+                showCapturarDocumento = true
+            },
         )
     }
 
@@ -392,7 +411,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onRegistrarConsulta = { showRegistrarConsulta = true },
                 onRegistrarIncidencia = { showRegistrarIncidencia = true },
                 onAnadirRecordatorio = { showAnadirRecordatorio = true },
-                onCapturarDocumento = { showSubirArchivo = true },
+                onCapturarDocumento = { showCapturarDocumento = true },
                 onVerVacunas = {
                     pendingActivityFilter = ActivityCategory.VACCINE
                     currentTab = MainTab.ACTIVIDAD

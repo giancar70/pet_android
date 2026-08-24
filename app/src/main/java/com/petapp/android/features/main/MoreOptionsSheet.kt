@@ -61,10 +61,11 @@ fun MoreOptionsSheet(
     onCompartirMascota: () -> Unit,
     onRegistrarConsulta: () -> Unit,
     onSubirArchivo: () -> Unit,
+    onCapturarDocumento: () -> Unit,
 ) {
     val options = listOf(
         MoreOption(Icons.Filled.Upload, "Subir Archivo", onSubirArchivo),
-        MoreOption(Icons.Filled.DocumentScanner, "Capturar\nDocumento", onDismiss),
+        MoreOption(Icons.Filled.DocumentScanner, "Capturar\nDocumento", onCapturarDocumento),
         MoreOption(Icons.Filled.CameraAlt, "Registrar\nIncidencia", onRegistrarIncidencia),
         MoreOption(Icons.Filled.Vaccines, "Añadir\nVacuna", onAnadirVacuna),
         MoreOption(Icons.Filled.Medication, "Añadir\nDesparasitación", onAnadirDesparasitacion),
