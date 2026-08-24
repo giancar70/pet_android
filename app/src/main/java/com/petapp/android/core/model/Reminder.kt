@@ -31,14 +31,8 @@ data class Reminder(
 enum class ReminderCategory(val apiValue: String, val label: String) {
     VACCINE("vaccine", "Vacuna"),
     DEWORMING("deworming", "Desparasitación"),
-    ANTIPARASITIC("antiparasitic", "Antiparasitario"),
     MEDICATION("medication", "Medicación"),
     CONSULTATION("consultation", "Consulta"),
-    SURGERY("surgery", "Cirugía"),
-    TEST("test", "Analítica"),
-    DIET("diet", "Dieta/Alimentación"),
-    WEIGHT("weight", "Peso/Control"),
-    OTHER("other", "Otro"),
 }
 
 enum class ReminderFrequency(val apiValue: String, val label: String) {

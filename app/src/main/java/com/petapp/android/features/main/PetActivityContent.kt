@@ -2,6 +2,7 @@ package com.petapp.android.features.main
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Description
@@ -88,6 +90,9 @@ fun PetActivityContent(
     onRegistrarIncidencia: () -> Unit = {},
     onAnadirRecordatorio: () -> Unit = {},
     onCapturarDocumento: () -> Unit = {},
+    onVerVacunas: () -> Unit = {},
+    onVerDesparasitacion: () -> Unit = {},
+    onVerConsultas: () -> Unit = {},
 ) {
     LaunchedEffect(petId) {
         if (petId != null) {
@@ -109,19 +114,19 @@ fun PetActivityContent(
         Text(text = "Actividad", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(20.dp))
 
-        SectionHeader(icon = Icons.Filled.Vaccines, title = "Vacunas")
+        SectionHeader(icon = Icons.Filled.Vaccines, title = "Vacunas", onVerTodo = onVerVacunas)
         Spacer(modifier = Modifier.height(10.dp))
         VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento)
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        SectionHeader(icon = Icons.Filled.Medication, title = "Desparasitación")
+        SectionHeader(icon = Icons.Filled.Medication, title = "Desparasitación", onVerTodo = onVerDesparasitacion)
         Spacer(modifier = Modifier.height(10.dp))
         DewormingSection(dewormingState, onAnadirDesparasitacion)
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        SectionHeader(icon = Icons.Filled.MedicalServices, title = "Consultas")
+        SectionHeader(icon = Icons.Filled.MedicalServices, title = "Consultas", onVerTodo = onVerConsultas)
         Spacer(modifier = Modifier.height(10.dp))
         ConsultasSection(consultasState, onRegistrarConsulta)
 
@@ -385,19 +390,40 @@ private fun formatIsoDateTime(iso: String): String = try {
 }
 
 @Composable
-private fun SectionHeader(icon: ImageVector, title: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(BrandGreen),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+private fun SectionHeader(icon: ImageVector, title: String, onVerTodo: (() -> Unit)? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(BrandGreen),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        if (onVerTodo != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable(onClick = onVerTodo),
+            ) {
+                Text(text = "Ver todo", color = BrandGreen, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = BrandGreen,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
     }
 }
 

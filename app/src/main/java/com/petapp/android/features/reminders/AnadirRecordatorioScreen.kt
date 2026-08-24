@@ -102,14 +102,8 @@ private sealed interface RecordatorioStep {
 private fun iconFor(category: ReminderCategory): ImageVector = when (category) {
     ReminderCategory.VACCINE -> Icons.Filled.Vaccines
     ReminderCategory.DEWORMING -> Icons.Filled.Medication
-    ReminderCategory.ANTIPARASITIC -> Icons.Filled.Shield
     ReminderCategory.MEDICATION -> Icons.Filled.LocalPharmacy
     ReminderCategory.CONSULTATION -> Icons.Filled.MedicalServices
-    ReminderCategory.SURGERY -> Icons.Filled.ContentCut
-    ReminderCategory.TEST -> Icons.Filled.Biotech
-    ReminderCategory.DIET -> Icons.Filled.Restaurant
-    ReminderCategory.WEIGHT -> Icons.Filled.MonitorWeight
-    ReminderCategory.OTHER -> Icons.Filled.MoreHoriz
 }
 
 @Composable

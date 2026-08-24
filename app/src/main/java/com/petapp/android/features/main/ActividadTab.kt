@@ -75,6 +75,8 @@ fun ActividadTab(
     userFullName: String?,
     onSwitchPetClick: () -> Unit,
     onMoreClick: () -> Unit = {},
+    initialFilter: ActivityCategory? = null,
+    onFilterConsumed: () -> Unit = {},
     vaccinesViewModel: VaccinesViewModel = viewModel(),
     dewormingViewModel: DewormingViewModel = viewModel(),
     consultationsViewModel: ConsultationsViewModel = viewModel(),
@@ -100,6 +102,8 @@ fun ActividadTab(
                 ActivityFeed(
                     petId = selectedPet?.id,
                     onMoreClick = onMoreClick,
+                    initialFilter = initialFilter,
+                    onFilterConsumed = onFilterConsumed,
                     vaccinesViewModel = vaccinesViewModel,
                     dewormingViewModel = dewormingViewModel,
                     consultationsViewModel = consultationsViewModel,
@@ -144,7 +148,7 @@ private enum class ActivityFilter(val label: String, val category: ActivityCateg
     CONSULTAS("Consultas", ActivityCategory.CONSULTA),
 }
 
-private enum class ActivityCategory { VACCINE, DEWORMING, CONSULTA, INCIDENCIA }
+enum class ActivityCategory { VACCINE, DEWORMING, CONSULTA, INCIDENCIA }
 
 private data class ActivityItem(
     val category: ActivityCategory,
@@ -159,11 +163,20 @@ private data class ActivityItem(
 private fun ActivityFeed(
     petId: String?,
     onMoreClick: () -> Unit,
+    initialFilter: ActivityCategory?,
+    onFilterConsumed: () -> Unit,
     vaccinesViewModel: VaccinesViewModel,
     dewormingViewModel: DewormingViewModel,
     consultationsViewModel: ConsultationsViewModel,
     incidentsViewModel: IncidentsViewModel,
 ) {
+    // initialFilter is a one-shot navigation argument (e.g. "Ver todo" from a specific
+    // Inicio section): applied once to selectedFilter below, then immediately reported
+    // back as consumed so a later plain tap on the Actividad tab doesn't re-apply it.
+    LaunchedEffect(initialFilter) {
+        if (initialFilter != null) onFilterConsumed()
+    }
+
     LaunchedEffect(petId) {
         if (petId != null) {
             vaccinesViewModel.fetchVacunas(petId)
@@ -253,7 +266,9 @@ private fun ActivityFeed(
         }
     }
 
-    var selectedFilter by remember { mutableStateOf(ActivityFilter.TODOS) }
+    var selectedFilter by remember(initialFilter) {
+        mutableStateOf(ActivityFilter.entries.firstOrNull { it.category == initialFilter } ?: ActivityFilter.TODOS)
+    }
     val filteredItems = items.filter { selectedFilter.category == null || it.category == selectedFilter.category }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {

@@ -74,6 +74,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     val userFullName = (userState as? UserUiState.Loaded)?.user?.fullName
 
     var currentTab by remember { mutableStateOf(MainTab.INICIO) }
+    var pendingActivityFilter by remember { mutableStateOf<ActivityCategory?>(null) }
     var showAddPet by remember { mutableStateOf(false) }
     var showPetSwitcher by remember { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
@@ -345,6 +346,18 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onRegistrarIncidencia = { showRegistrarIncidencia = true },
                 onAnadirRecordatorio = { showAnadirRecordatorio = true },
                 onCapturarDocumento = { showSubirArchivo = true },
+                onVerVacunas = {
+                    pendingActivityFilter = ActivityCategory.VACCINE
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerDesparasitacion = {
+                    pendingActivityFilter = ActivityCategory.DEWORMING
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerConsultas = {
+                    pendingActivityFilter = ActivityCategory.CONSULTA
+                    currentTab = MainTab.ACTIVIDAD
+                },
                 modifier = contentModifier,
             )
             MainTab.ACTIVIDAD -> ActividadTab(
@@ -353,6 +366,8 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 userFullName = userFullName,
                 onSwitchPetClick = { showPetSwitcher = true },
                 onMoreClick = { showMoreOptions = true },
+                initialFilter = pendingActivityFilter,
+                onFilterConsumed = { pendingActivityFilter = null },
                 modifier = contentModifier,
             )
             MainTab.MAS -> MasTab(

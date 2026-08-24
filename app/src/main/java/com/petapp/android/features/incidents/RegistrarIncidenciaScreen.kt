@@ -1,6 +1,7 @@
 package com.petapp.android.features.incidents
 
 import android.graphics.BitmapFactory
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -149,7 +150,7 @@ private fun IncidenciaFormContent(
     var time by remember { mutableStateOf(LocalTime.now()) }
     var imageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var imagePreview by remember { mutableStateOf<ImageBitmap?>(null) }
-    var documentPicked by remember { mutableStateOf(false) }
+    var documentEvidence by remember { mutableStateOf<EvidenceFile?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -194,7 +195,22 @@ private fun IncidenciaFormContent(
     }
     val documentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
-    ) { uri -> if (uri != null) documentPicked = true }
+    ) { uri ->
+        if (uri != null) {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes != null) {
+                var name = "documento"
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIdx >= 0 && cursor.moveToFirst()) {
+                        cursor.getString(nameIdx)?.let { name = it }
+                    }
+                }
+                val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                documentEvidence = EvidenceFile(bytes, name, mimeType)
+            }
+        }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -363,8 +379,8 @@ private fun IncidenciaFormContent(
                     modifier = Modifier.weight(1f),
                 )
                 EvidenceBox(
-                    icon = if (documentPicked) Icons.Filled.Check else Icons.Filled.Description,
-                    label = if (documentPicked) "Documento añadido" else "Añadir documento",
+                    icon = if (documentEvidence != null) Icons.Filled.Check else Icons.Filled.Description,
+                    label = if (documentEvidence != null) "Documento añadido" else "Añadir documento",
                     preview = null,
                     onClick = { documentPicker.launch("*/*") },
                     modifier = Modifier.weight(1f),
@@ -397,7 +413,15 @@ private fun IncidenciaFormContent(
                                 .atZone(ZoneId.systemDefault())
                                 .toInstant()
                                 .toString()
-                            viewModel.createIncidencia(petId, title, description, eventDateIso)
+                            val photoEvidence = imageBytes?.let { EvidenceFile(it, "incidencia.jpg", "image/jpeg") }
+                            viewModel.createIncidencia(
+                                petId = petId,
+                                title = title,
+                                description = description,
+                                eventDateIso = eventDateIso,
+                                photo = photoEvidence,
+                                document = documentEvidence,
+                            )
                         }
                     }
                 },

@@ -73,6 +73,26 @@ object ApiClient {
         return execute(newRequest(path).post(bodyBuilder.build()).build())
     }
 
+    suspend inline fun <reified T> postMultipartFile(
+        path: String,
+        fields: Map<String, String>,
+        fileBytes: ByteArray,
+        fileName: String,
+        mimeType: String,
+        fileFieldName: String = "file",
+    ): T {
+        val bodyBuilder = MultipartBody.Builder().setType(MultipartBody.FORM)
+        for ((key, value) in fields) {
+            bodyBuilder.addFormDataPart(key, value)
+        }
+        bodyBuilder.addFormDataPart(
+            fileFieldName,
+            fileName,
+            fileBytes.toRequestBody(mimeType.toMediaType()),
+        )
+        return execute(newRequest(path).post(bodyBuilder.build()).build())
+    }
+
     suspend fun postEmpty(path: String) {
         val empty = ByteArray(0).toRequestBody(null)
         val (code, bodyStr) = withContext(Dispatchers.IO) { runRequest(newRequest(path).post(empty).build()) }

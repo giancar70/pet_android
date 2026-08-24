@@ -18,4 +18,5 @@ object ApiEndpoints {
     fun petReminders(petId: String) = "/pets/$petId/reminders/"
     fun petShare(petId: String) = "/pets/$petId/share/"
     fun petConsultations(petId: String) = "/pets/$petId/consultations/"
+    fun petDocuments(petId: String) = "/pets/$petId/documents/"
 }
