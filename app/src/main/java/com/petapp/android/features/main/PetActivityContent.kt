@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Consultation
 import com.petapp.android.core.model.DewormingApplication
+import com.petapp.android.core.model.Document
 import com.petapp.android.core.model.PetEvent
 import com.petapp.android.core.model.Reminder
 import com.petapp.android.core.model.ReminderFrequency
@@ -56,6 +57,8 @@ import com.petapp.android.features.consultations.ConsultasListUiState
 import com.petapp.android.features.consultations.ConsultationsViewModel
 import com.petapp.android.features.deworming.DewormingListUiState
 import com.petapp.android.features.deworming.DewormingViewModel
+import com.petapp.android.features.files.DocumentsListUiState
+import com.petapp.android.features.files.FilesViewModel
 import com.petapp.android.features.incidents.IncidenciasListUiState
 import com.petapp.android.features.incidents.IncidentsViewModel
 import com.petapp.android.features.incidents.spanishDate
@@ -74,6 +77,8 @@ private val CardBorder = Color(0xFFEFEFF4)
 private val PlaceholderIconBg = Color(0xFFE3E3E3)
 private val ButtonBackground = Color(0xFFF3F3F3)
 private val RecordIconBg = Color(0xFFD9FEF2)
+private val IncidentRed = Color(0xFFC0392B)
+private val IncidentIconBg = Color(0xFFF8D7D3)
 
 @Composable
 fun PetActivityContent(
@@ -84,6 +89,7 @@ fun PetActivityContent(
     consultationsViewModel: ConsultationsViewModel = viewModel(),
     incidentsViewModel: IncidentsViewModel = viewModel(),
     remindersViewModel: RemindersViewModel = viewModel(),
+    filesViewModel: FilesViewModel = viewModel(),
     onAnadirVacuna: () -> Unit = {},
     onAnadirDesparasitacion: () -> Unit = {},
     onRegistrarConsulta: () -> Unit = {},
@@ -93,6 +99,8 @@ fun PetActivityContent(
     onVerVacunas: () -> Unit = {},
     onVerDesparasitacion: () -> Unit = {},
     onVerConsultas: () -> Unit = {},
+    onVerIncidencias: () -> Unit = {},
+    onVerDocumentos: () -> Unit = {},
 ) {
     LaunchedEffect(petId) {
         if (petId != null) {
@@ -101,6 +109,7 @@ fun PetActivityContent(
             consultationsViewModel.fetchConsultas(petId)
             incidentsViewModel.fetchIncidencias(petId)
             remindersViewModel.fetchRecordatorios(petId)
+            filesViewModel.fetchDocuments(petId)
         }
     }
 
@@ -109,6 +118,7 @@ fun PetActivityContent(
     val consultasState by consultationsViewModel.listState.collectAsState()
     val incidenciasState by incidentsViewModel.listState.collectAsState()
     val recordatoriosState by remindersViewModel.listState.collectAsState()
+    val documentsState by filesViewModel.listState.collectAsState()
 
     Column(modifier = modifier.padding(horizontal = 24.dp)) {
         Text(text = "Actividad", fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -132,7 +142,7 @@ fun PetActivityContent(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        SectionHeader(icon = Icons.Filled.ReportProblem, title = "Incidencias")
+        SectionHeader(icon = Icons.Filled.ReportProblem, title = "Incidencias", onVerTodo = onVerIncidencias)
         Spacer(modifier = Modifier.height(10.dp))
         IncidenciasSection(incidenciasState, onRegistrarIncidencia)
 
@@ -144,18 +154,9 @@ fun PetActivityContent(
 
         // Spacer(modifier = Modifier.height(28.dp))
 
-        SectionHeader(icon = Icons.Filled.Description, title = "Documentos")
+        SectionHeader(icon = Icons.Filled.Description, title = "Documentos", onVerTodo = onVerDocumentos)
         Spacer(modifier = Modifier.height(10.dp))
-        EmptyStateCard(
-            icon = Icons.Filled.Description,
-            title = "Aún no hay documentos",
-            description = "Guarda análisis, estudios, cartillas o cualquier documento importante.",
-            primaryLabel = "Capturar documento",
-            primarySublabel = "Escanear, subir PDF o foto",
-            secondaryLabel = null,
-            secondarySublabel = null,
-            onPrimaryClick = onCapturarDocumento,
-        )
+        DocumentsSection(documentsState, onCapturarDocumento)
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -293,6 +294,49 @@ private fun IncidenciaRow(event: PetEvent) {
 }
 
 @Composable
+private fun DocumentsSection(state: DocumentsListUiState, onCapturarDocumento: () -> Unit) {
+    when (state) {
+        is DocumentsListUiState.Loading -> LoadingRow()
+        is DocumentsListUiState.Error -> ErrorRow(state.message)
+        is DocumentsListUiState.Loaded -> {
+            if (state.documents.isEmpty()) {
+                EmptyStateCard(
+                    icon = Icons.Filled.Description,
+                    title = "Aún no hay documentos",
+                    description = "Guarda análisis, estudios, cartillas o cualquier documento importante.",
+                    primaryLabel = "Capturar documento",
+                    primarySublabel = "Escanear, subir PDF o foto",
+                    secondaryLabel = null,
+                    secondarySublabel = null,
+                    onPrimaryClick = onCapturarDocumento,
+                )
+            } else {
+                RecordList {
+                    state.documents.forEach { document -> DocumentRow(document) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DocumentRow(document: Document) {
+    // A document uploaded as evidence for an incidencia shows that incidencia's title
+    // and icon instead of the generic document ones, so it reads as "the incident that
+    // has a file attached" rather than an unrelated standalone document.
+    val linkedIncidencia = document.eventTitle
+    val title = linkedIncidencia ?: (document.title?.takeIf { it.isNotBlank() } ?: "Documento")
+    val subtitle = document.documentDate?.let { formatIsoDate(it) } ?: formatIsoDateTime(document.createdAt)
+    RecordRow(
+        icon = if (linkedIncidencia != null) Icons.Filled.ReportProblem else Icons.Filled.Description,
+        title = title,
+        subtitle = subtitle,
+        iconBg = if (linkedIncidencia != null) IncidentIconBg else RecordIconBg,
+        iconTint = if (linkedIncidencia != null) IncidentRed else BrandGreen,
+    )
+}
+
+@Composable
 private fun RecordatoriosSection(state: RecordatoriosListUiState, onAnadirRecordatorio: () -> Unit) {
     when (state) {
         is RecordatoriosListUiState.Loading -> LoadingRow()
@@ -333,7 +377,13 @@ private fun RecordList(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RecordRow(icon: ImageVector, title: String, subtitle: String) {
+private fun RecordRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    iconBg: Color = RecordIconBg,
+    iconTint: Color = BrandGreen,
+) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
@@ -348,10 +398,10 @@ private fun RecordRow(icon: ImageVector, title: String, subtitle: String) {
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(RecordIconBg),
+                    .background(iconBg),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column {

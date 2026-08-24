@@ -70,6 +70,8 @@ fun InicioTab(
     onVerVacunas: () -> Unit = {},
     onVerDesparasitacion: () -> Unit = {},
     onVerConsultas: () -> Unit = {},
+    onVerIncidencias: () -> Unit = {},
+    onVerDocumentos: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val hasPets = pets.isNotEmpty()
@@ -101,6 +103,8 @@ fun InicioTab(
                     onVerVacunas = onVerVacunas,
                     onVerDesparasitacion = onVerDesparasitacion,
                     onVerConsultas = onVerConsultas,
+                    onVerIncidencias = onVerIncidencias,
+                    onVerDocumentos = onVerDocumentos,
                 )
                 Spacer(modifier = Modifier.height(96.dp))
             } else {

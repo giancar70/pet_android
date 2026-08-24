@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.MoreVert
@@ -53,6 +54,8 @@ import com.petapp.android.features.consultations.ConsultasListUiState
 import com.petapp.android.features.consultations.ConsultationsViewModel
 import com.petapp.android.features.deworming.DewormingListUiState
 import com.petapp.android.features.deworming.DewormingViewModel
+import com.petapp.android.features.files.DocumentsListUiState
+import com.petapp.android.features.files.FilesViewModel
 import com.petapp.android.features.incidents.IncidenciasListUiState
 import com.petapp.android.features.incidents.IncidentsViewModel
 import com.petapp.android.features.vaccines.VaccinesListUiState
@@ -82,6 +85,7 @@ fun ActividadTab(
     dewormingViewModel: DewormingViewModel = viewModel(),
     consultationsViewModel: ConsultationsViewModel = viewModel(),
     incidentsViewModel: IncidentsViewModel = viewModel(),
+    filesViewModel: FilesViewModel = viewModel(),
     modifier: Modifier = Modifier,
 ) {
     val hasPets = pets.isNotEmpty()
@@ -110,6 +114,7 @@ fun ActividadTab(
                     dewormingViewModel = dewormingViewModel,
                     consultationsViewModel = consultationsViewModel,
                     incidentsViewModel = incidentsViewModel,
+                    filesViewModel = filesViewModel,
                 )
             } else {
                 Box(
@@ -148,9 +153,11 @@ private enum class ActivityFilter(val label: String, val category: ActivityCateg
     VACUNAS("Vacunas", ActivityCategory.VACCINE),
     DESPARASITACION("Desparasitación", ActivityCategory.DEWORMING),
     CONSULTAS("Consultas", ActivityCategory.CONSULTA),
+    INCIDENCIAS("Incidencias", ActivityCategory.INCIDENCIA),
+    DOCUMENTOS("Documentos", ActivityCategory.DOCUMENT),
 }
 
-enum class ActivityCategory { VACCINE, DEWORMING, CONSULTA, INCIDENCIA }
+enum class ActivityCategory { VACCINE, DEWORMING, CONSULTA, INCIDENCIA, DOCUMENT }
 
 private data class ActivityItem(
     val id: String,
@@ -173,6 +180,7 @@ private fun ActivityFeed(
     dewormingViewModel: DewormingViewModel,
     consultationsViewModel: ConsultationsViewModel,
     incidentsViewModel: IncidentsViewModel,
+    filesViewModel: FilesViewModel,
 ) {
     // initialFilter is a one-shot navigation argument (e.g. "Ver todo" from a specific
     // Inicio section): applied once to selectedFilter below, then immediately reported
@@ -187,6 +195,7 @@ private fun ActivityFeed(
             dewormingViewModel.fetchDesparasitaciones(petId)
             consultationsViewModel.fetchConsultas(petId)
             incidentsViewModel.fetchIncidencias(petId)
+            filesViewModel.fetchDocuments(petId)
         }
     }
 
@@ -194,13 +203,15 @@ private fun ActivityFeed(
     val dewormingState by dewormingViewModel.listState.collectAsState()
     val consultasState by consultationsViewModel.listState.collectAsState()
     val incidenciasState by incidentsViewModel.listState.collectAsState()
+    val documentsState by filesViewModel.listState.collectAsState()
 
     val isLoading = vacunasState is VaccinesListUiState.Loading ||
         dewormingState is DewormingListUiState.Loading ||
         consultasState is ConsultasListUiState.Loading ||
-        incidenciasState is IncidenciasListUiState.Loading
+        incidenciasState is IncidenciasListUiState.Loading ||
+        documentsState is DocumentsListUiState.Loading
 
-    val items = remember(vacunasState, dewormingState, consultasState, incidenciasState) {
+    val items = remember(vacunasState, dewormingState, consultasState, incidenciasState, documentsState) {
         buildList {
             (vacunasState as? VaccinesListUiState.Loaded)?.doses?.forEach { dose ->
                 val instant = isoDateToInstant(dose.appliedOn)
@@ -266,6 +277,26 @@ private fun ActivityFeed(
                             iconTint = IncidentRed,
                             title = event.title,
                             subtitle = event.description?.takeIf { it.isNotBlank() } ?: "Incidencia registrada",
+                        ),
+                    )
+                }
+            }
+            (documentsState as? DocumentsListUiState.Loaded)?.documents?.forEach { document ->
+                val instant = document.documentDate?.let { isoDateToInstant(it) }
+                    ?: runCatching { Instant.parse(document.createdAt) }.getOrNull()
+                if (instant != null) {
+                    // A document uploaded as evidence for an incidencia shows that
+                    // incidencia's title and icon instead of the generic document ones.
+                    val linkedIncidencia = document.eventTitle
+                    add(
+                        ActivityItem(
+                            id = document.id,
+                            category = ActivityCategory.DOCUMENT,
+                            instant = instant,
+                            icon = if (linkedIncidencia != null) Icons.Filled.ReportProblem else Icons.Filled.Description,
+                            iconTint = if (linkedIncidencia != null) IncidentRed else BrandGreen,
+                            title = linkedIncidencia ?: (document.title?.takeIf { it.isNotBlank() } ?: "Documento"),
+                            subtitle = "Subido el ${spanishShortDate(instant)}",
                         ),
                     )
                 }
@@ -346,13 +377,11 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun ActivityRow(item: ActivityItem, onClick: (ActivityItem) -> Unit) {
-    val clickable = item.category != ActivityCategory.INCIDENCIA
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
         border = BorderStroke(1.dp, CardBorder),
-        onClick = { if (clickable) onClick(item) },
-        enabled = clickable,
+        onClick = { onClick(item) },
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(

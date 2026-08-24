@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
@@ -40,12 +41,17 @@ import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Pet
 import com.petapp.android.features.main.GreetingHeader
 import java.text.DecimalFormat
@@ -80,36 +87,50 @@ private val ChipBg = Color(0xFFD9FEF2)
 
 private data class SelectedFile(
     val uri: Uri,
+    val bytes: ByteArray,
     val name: String,
     val mimeType: String,
     val sizeBytes: Long,
     val lastModifiedMillis: Long?,
 )
 
+private sealed interface UploadStep {
+    data object Picker : UploadStep
+    data class Selected(val file: SelectedFile) : UploadStep
+    data class Success(val file: SelectedFile) : UploadStep
+}
+
 @Composable
 fun SubirArchivoScreen(
     selectedPet: Pet?,
     userFullName: String?,
     onBack: () -> Unit,
-    onDone: () -> Unit,
+    onViewActivity: () -> Unit,
+    viewModel: FilesViewModel = viewModel(),
 ) {
-    var selectedFile by remember { mutableStateOf<SelectedFile?>(null) }
-    val file = selectedFile
+    var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
 
-    if (file == null) {
-        SubirArchivoStep(
+    when (val current = step) {
+        is UploadStep.Picker -> SubirArchivoStep(
             selectedPet = selectedPet,
             userFullName = userFullName,
             onBack = onBack,
-            onFilePicked = { selectedFile = it },
+            onFilePicked = { step = UploadStep.Selected(it) },
         )
-    } else {
-        ArchivoSeleccionadoStep(
+        is UploadStep.Selected -> ArchivoSeleccionadoStep(
             selectedPet = selectedPet,
             userFullName = userFullName,
-            file = file,
-            onBack = { selectedFile = null },
-            onContinue = onDone,
+            file = current.file,
+            onBack = { step = UploadStep.Picker },
+            onUploaded = { step = UploadStep.Success(current.file) },
+            viewModel = viewModel,
+        )
+        is UploadStep.Success -> DocumentoGuardadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onViewActivity = onViewActivity,
+            onUploadAnother = { step = UploadStep.Picker },
         )
     }
 }
@@ -157,7 +178,7 @@ private fun SubirArchivoStep(
             Spacer(modifier = Modifier.height(6.dp))
             val petName = selectedPet?.name ?: "tu mascota"
             Text(
-                text = "Sube documentos, análisis, estudios, imágenes o videos relacionados con la salud de $petName.",
+                text = "Sube documentos, análisis, estudios, imágenes relacionados con la salud de $petName.",
                 color = SubtitleGray,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
@@ -188,7 +209,6 @@ private fun SubirArchivoStep(
             ) {
                 FormatChip(Icons.Filled.Description, "PDF", Modifier.weight(1f))
                 FormatChip(Icons.Filled.Image, "Imágenes", Modifier.weight(1f))
-                FormatChip(Icons.Filled.Videocam, "Videos", Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -268,8 +288,31 @@ private fun ArchivoSeleccionadoStep(
     userFullName: String?,
     file: SelectedFile,
     onBack: () -> Unit,
-    onContinue: () -> Unit,
+    onUploaded: () -> Unit,
+    viewModel: FilesViewModel,
 ) {
+    val uploadState by viewModel.uploadState.collectAsState()
+
+    // FilesViewModel is Activity-scoped (no Navigation-Compose back stack), so a prior
+    // successful upload can still be sitting in uploadState when this screen re-enters.
+    // Resetting it here races the effect below (collectAsState's initial value may
+    // already have latched onto the stale Success), so consumedInitialState instead
+    // always ignores the first firing regardless of what it sees, and only acts on a
+    // later, genuine Success from this screen's own upload.
+    LaunchedEffect(Unit) {
+        viewModel.resetUploadState()
+    }
+    var consumedInitialState by remember { mutableStateOf(false) }
+    LaunchedEffect(uploadState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
+        if (uploadState is UploadDocumentUiState.Success) {
+            onUploaded()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -334,18 +377,168 @@ private fun ArchivoSeleccionadoStep(
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+            val errorMessage = (uploadState as? UploadDocumentUiState.Error)?.message
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            val isUploading = uploadState is UploadDocumentUiState.Loading
             Button(
-                onClick = onContinue,
+                onClick = {
+                    val petId = selectedPet?.id
+                    if (petId != null) {
+                        viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType)
+                    }
+                },
+                enabled = !isUploading && selectedPet != null,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
             ) {
-                Text(text = "Continuar", fontWeight = FontWeight.Bold)
+                if (isUploading) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                } else {
+                    Text(text = "Continuar", fontWeight = FontWeight.Bold)
+                }
             }
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun DocumentoGuardadoStep(
+    selectedPet: Pet?,
+    userFullName: String?,
+    file: SelectedFile,
+    onViewActivity: () -> Unit,
+    onUploadAnother: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        GreetingHeader(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            hasPets = selectedPet != null,
+            onSwitchPetClick = {},
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            SuccessIllustration()
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(text = "Listo", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+            val petName = selectedPet?.name ?: "tu mascota"
+            Text(
+                text = "Se guardó el documento en la historia de $petName.",
+                color = SubtitleGray,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    InfoRow(Icons.Filled.Description, "Documento guardado", file.name)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+            Button(
+                onClick = onViewActivity,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Text(text = "Ver en actividad", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onUploadAnother,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Text(text = "Subir otro archivo", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun SuccessIllustration() {
+    Box(modifier = Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFFF5A623),
+            modifier = Modifier.size(16.dp).align(Alignment.TopStart),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(18.dp).align(Alignment.TopEnd),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(14.dp).align(Alignment.BottomStart),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFFF5A623),
+            modifier = Modifier.size(16.dp).align(Alignment.BottomEnd),
+        )
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(IllustrationBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Folder, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(44.dp))
+        }
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.BottomEnd)
+                .clip(CircleShape)
+                .background(BrandGreen),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -405,7 +598,8 @@ private fun readFileMeta(context: Context, uri: Uri): SelectedFile {
     } catch (e: Exception) {
         null
     }
-    return SelectedFile(uri, name, mimeType, size, lastModified)
+    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+    return SelectedFile(uri, bytes, name, mimeType, size, lastModified)
 }
 
 private fun iconForMimeType(mimeType: String): ImageVector = when {

@@ -28,12 +28,58 @@ sealed interface IncidenciasListUiState {
     data class Error(val message: String) : IncidenciasListUiState
 }
 
+sealed interface IncidenciaDetailUiState {
+    data object Loading : IncidenciaDetailUiState
+    data class Loaded(val event: PetEvent) : IncidenciaDetailUiState
+    data class Error(val message: String) : IncidenciaDetailUiState
+}
+
+sealed interface IncidenciaDocumentsUiState {
+    data object Loading : IncidenciaDocumentsUiState
+    data class Loaded(val documents: List<Document>) : IncidenciaDocumentsUiState
+    data class Error(val message: String) : IncidenciaDocumentsUiState
+}
+
 class IncidentsViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateEventUiState>(CreateEventUiState.Idle)
     val createState: StateFlow<CreateEventUiState> = _createState.asStateFlow()
 
     private val _listState = MutableStateFlow<IncidenciasListUiState>(IncidenciasListUiState.Loading)
     val listState: StateFlow<IncidenciasListUiState> = _listState.asStateFlow()
+
+    private val _detailState = MutableStateFlow<IncidenciaDetailUiState>(IncidenciaDetailUiState.Loading)
+    val detailState: StateFlow<IncidenciaDetailUiState> = _detailState.asStateFlow()
+
+    private val _documentsState = MutableStateFlow<IncidenciaDocumentsUiState>(IncidenciaDocumentsUiState.Loading)
+    val documentsState: StateFlow<IncidenciaDocumentsUiState> = _documentsState.asStateFlow()
+
+    fun fetchIncidenciaDetail(petId: String, eventId: String) {
+        _detailState.value = IncidenciaDetailUiState.Loading
+        viewModelScope.launch {
+            try {
+                val event: PetEvent = ApiClient.get(ApiEndpoints.petEventDetail(petId, eventId))
+                _detailState.value = IncidenciaDetailUiState.Loaded(event)
+            } catch (e: ApiError.ServerError) {
+                _detailState.value = IncidenciaDetailUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _detailState.value = IncidenciaDetailUiState.Error(e.message ?: "No se pudo cargar la incidencia.")
+            }
+        }
+    }
+
+    fun fetchIncidenciaDocuments(petId: String, eventId: String) {
+        _documentsState.value = IncidenciaDocumentsUiState.Loading
+        viewModelScope.launch {
+            try {
+                val documents: List<Document> = ApiClient.get(ApiEndpoints.petEventDocuments(petId, eventId))
+                _documentsState.value = IncidenciaDocumentsUiState.Loaded(documents)
+            } catch (e: ApiError.ServerError) {
+                _documentsState.value = IncidenciaDocumentsUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _documentsState.value = IncidenciaDocumentsUiState.Error(e.message ?: "No se pudieron cargar los archivos.")
+            }
+        }
+    }
 
     fun fetchIncidencias(petId: String) {
         _listState.value = IncidenciasListUiState.Loading

@@ -33,7 +33,9 @@ import com.petapp.android.features.consultations.ConsultaDetailScreen
 import com.petapp.android.features.consultations.RegistrarConsultaScreen
 import com.petapp.android.features.deworming.DesparasitacionDetailScreen
 import com.petapp.android.features.deworming.RegistrarDesparasitacionScreen
+import com.petapp.android.features.files.DocumentDetailScreen
 import com.petapp.android.features.files.SubirArchivoScreen
+import com.petapp.android.features.incidents.IncidenciaDetailScreen
 import com.petapp.android.features.incidents.RegistrarIncidenciaScreen
 import com.petapp.android.features.pets.GestionarPetScreen
 import com.petapp.android.features.pets.PetDetailScreen
@@ -128,7 +130,18 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     consultationId = id,
                     onBack = { activityDetail = null },
                 )
-                ActivityCategory.INCIDENCIA -> Unit
+                ActivityCategory.INCIDENCIA -> IncidenciaDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    eventId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.DOCUMENT -> DocumentDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    documentId = id,
+                    onBack = { activityDetail = null },
+                )
             }
             return
         }
@@ -197,7 +210,11 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 selectedPet = selectedPet,
                 userFullName = userFullName,
                 onBack = { showSubirArchivo = false },
-                onDone = { showSubirArchivo = false },
+                onViewActivity = {
+                    showSubirArchivo = false
+                    pendingActivityFilter = ActivityCategory.DOCUMENT
+                    currentTab = MainTab.ACTIVIDAD
+                },
             )
             return
         }
@@ -386,6 +403,14 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 },
                 onVerConsultas = {
                     pendingActivityFilter = ActivityCategory.CONSULTA
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerIncidencias = {
+                    pendingActivityFilter = ActivityCategory.INCIDENCIA
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerDocumentos = {
+                    pendingActivityFilter = ActivityCategory.DOCUMENT
                     currentTab = MainTab.ACTIVIDAD
                 },
                 modifier = contentModifier,
