@@ -12,6 +12,8 @@ data class Document(
     val title: String? = null,
     val file: String? = null,
     @SerialName("mime_type") val mimeType: String? = null,
+    @SerialName("ocr_status") val ocrStatus: String? = null,
+    @SerialName("ocr_text") val ocrText: String? = null,
     @SerialName("document_date") val documentDate: String? = null,
     @SerialName("created_at") val createdAt: String,
 )

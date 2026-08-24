@@ -192,6 +192,23 @@ private fun DocumentDetailContent(document: Document) {
         }
     }
 
+    val ocrText = document.ocrText?.trim()
+    if (document.ocrStatus == "done" && !ocrText.isNullOrBlank()) {
+        Spacer(modifier = Modifier.height(20.dp))
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "Texto detectado", color = SubtitleGray, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = ocrText, fontSize = 13.sp, color = Color.Black)
+            }
+        }
+    }
+
     Spacer(modifier = Modifier.height(24.dp))
     Button(
         onClick = {
