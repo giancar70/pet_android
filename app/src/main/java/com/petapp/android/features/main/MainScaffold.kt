@@ -339,6 +339,12 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onSwitchPetClick = { showPetSwitcher = true },
                 onAddPetClick = { showAddPet = true },
                 onMoreClick = { showMoreOptions = true },
+                onAnadirVacuna = { showAnadirVacuna = true },
+                onAnadirDesparasitacion = { showAnadirDesparasitacion = true },
+                onRegistrarConsulta = { showRegistrarConsulta = true },
+                onRegistrarIncidencia = { showRegistrarIncidencia = true },
+                onAnadirRecordatorio = { showAnadirRecordatorio = true },
+                onCapturarDocumento = { showSubirArchivo = true },
                 modifier = contentModifier,
             )
             MainTab.ACTIVIDAD -> ActividadTab(
@@ -346,6 +352,12 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 selectedPet = selectedPet,
                 userFullName = userFullName,
                 onSwitchPetClick = { showPetSwitcher = true },
+                onAnadirVacuna = { showAnadirVacuna = true },
+                onAnadirDesparasitacion = { showAnadirDesparasitacion = true },
+                onRegistrarConsulta = { showRegistrarConsulta = true },
+                onRegistrarIncidencia = { showRegistrarIncidencia = true },
+                onAnadirRecordatorio = { showAnadirRecordatorio = true },
+                onCapturarDocumento = { showSubirArchivo = true },
                 modifier = contentModifier,
             )
             MainTab.MAS -> MasTab(

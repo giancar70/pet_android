@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -115,18 +115,28 @@ private fun VacunaFormContent(
     var vacunaAplicada by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(LocalDate.now()) }
     var lote by remember { mutableStateOf("") }
-    var veterinario by remember { mutableStateOf("") }
     var observaciones by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     // VaccinesViewModel is Activity-scoped (no Navigation-Compose back stack), so a
-    // prior success would otherwise still be sitting in createState and bounce this
-    // screen straight to the success step via the LaunchedEffect below.
+    // prior success can still be sitting in createState when this screen re-enters —
+    // resetting it here races the LaunchedEffect(createState) below (collectAsState's
+    // initial value may already have latched onto the stale Success before the reset's
+    // StateFlow emission propagates), which could bounce straight to the success step.
+    // Guarding with consumedInitialState sidesteps the race entirely: the first firing
+    // of LaunchedEffect(createState) is always ignored regardless of what it sees, and
+    // only a later, genuine transition (Loading -> Success from this screen's own save)
+    // triggers onSaved.
     LaunchedEffect(Unit) {
         viewModel.resetCreateState()
     }
+    var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
         val state = createState
         if (state is CreateVaccineDoseUiState.Success) {
             onSaved(SavedVacuna(name = state.dose.vaccine, dateDisplay = spanishDate(date)))
@@ -136,6 +146,11 @@ private fun VacunaFormContent(
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
+            }
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -234,7 +249,7 @@ private fun VacunaFormContent(
             Spacer(modifier = Modifier.height(16.dp))
             FormCard {
                 Text(text = "N° de lote", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
+                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 10.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = lote,
@@ -248,29 +263,12 @@ private fun VacunaFormContent(
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Veterinario / Clínica", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = veterinario,
-                    onValueChange = { veterinario = it },
-                    placeholder = { Text("Clínica Vetra") },
-                    singleLine = true,
-                    trailingIcon = { Icon(Icons.Filled.ChevronRight, contentDescription = null) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = CardBorder,
-                        focusedBorderColor = BrandGreen,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             FormCard {
                 Text(text = "Observaciones", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
+                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 10.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = observaciones,
@@ -319,7 +317,6 @@ private fun VacunaFormContent(
                                 vaccineName = vacunaAplicada,
                                 appliedOnIso = date.toString(),
                                 lotNumber = lote,
-                                clinicName = veterinario,
                                 notes = observaciones,
                             )
                         }
@@ -342,7 +339,7 @@ private fun VacunaFormContent(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Lock, contentDescription = null, tint = SubtitleGray, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "Tu información está protegida y encriptada", color = SubtitleGray, fontSize = 12.sp)
+                Text(text = "Tu información está protegida y encriptada", color = SubtitleGray, fontSize = 10.sp)
             }
             Spacer(modifier = Modifier.height(32.dp))
         }

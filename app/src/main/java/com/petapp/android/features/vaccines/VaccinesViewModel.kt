@@ -51,7 +51,6 @@ class VaccinesViewModel : ViewModel() {
         vaccineName: String,
         appliedOnIso: String,
         lotNumber: String?,
-        clinicName: String?,
         notes: String?,
     ) {
         _createState.value = CreateVaccineDoseUiState.Loading
@@ -61,7 +60,6 @@ class VaccinesViewModel : ViewModel() {
                     vaccineName = vaccineName,
                     appliedOn = appliedOnIso,
                     lotNumber = lotNumber?.takeIf { it.isNotBlank() },
-                    clinicName = clinicName?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
                 )
                 val dose: VaccineDose = ApiClient.post(ApiEndpoints.petVaccineDoses(petId), request)

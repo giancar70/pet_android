@@ -82,6 +82,12 @@ fun PetActivityContent(
     consultationsViewModel: ConsultationsViewModel = viewModel(),
     incidentsViewModel: IncidentsViewModel = viewModel(),
     remindersViewModel: RemindersViewModel = viewModel(),
+    onAnadirVacuna: () -> Unit = {},
+    onAnadirDesparasitacion: () -> Unit = {},
+    onRegistrarConsulta: () -> Unit = {},
+    onRegistrarIncidencia: () -> Unit = {},
+    onAnadirRecordatorio: () -> Unit = {},
+    onCapturarDocumento: () -> Unit = {},
 ) {
     LaunchedEffect(petId) {
         if (petId != null) {
@@ -105,33 +111,33 @@ fun PetActivityContent(
 
         SectionHeader(icon = Icons.Filled.Vaccines, title = "Vacunas")
         Spacer(modifier = Modifier.height(10.dp))
-        VaccinesSection(vacunasState)
+        VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento)
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.Medication, title = "Desparasitación")
         Spacer(modifier = Modifier.height(10.dp))
-        DewormingSection(dewormingState)
+        DewormingSection(dewormingState, onAnadirDesparasitacion)
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.MedicalServices, title = "Consultas")
         Spacer(modifier = Modifier.height(10.dp))
-        ConsultasSection(consultasState)
+        ConsultasSection(consultasState, onRegistrarConsulta)
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.ReportProblem, title = "Incidencias")
         Spacer(modifier = Modifier.height(10.dp))
-        IncidenciasSection(incidenciasState)
+        IncidenciasSection(incidenciasState, onRegistrarIncidencia)
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        SectionHeader(icon = Icons.Filled.CalendarMonth, title = "Recordatorios")
-        Spacer(modifier = Modifier.height(10.dp))
-        RecordatoriosSection(recordatoriosState)
+        //SectionHeader(icon = Icons.Filled.CalendarMonth, title = "Recordatorios")
+        // Spacer(modifier = Modifier.height(10.dp))
+        // RecordatoriosSection(recordatoriosState, onAnadirRecordatorio)
 
-        Spacer(modifier = Modifier.height(28.dp))
+        // Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.Description, title = "Documentos")
         Spacer(modifier = Modifier.height(10.dp))
@@ -143,6 +149,7 @@ fun PetActivityContent(
             primarySublabel = "Escanear, subir PDF o foto",
             secondaryLabel = null,
             secondarySublabel = null,
+            onPrimaryClick = onCapturarDocumento,
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -150,7 +157,7 @@ fun PetActivityContent(
 }
 
 @Composable
-private fun VaccinesSection(state: VaccinesListUiState) {
+private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Unit, onCapturarDocumento: () -> Unit) {
     when (state) {
         is VaccinesListUiState.Loading -> LoadingRow()
         is VaccinesListUiState.Error -> ErrorRow(state.message)
@@ -164,6 +171,8 @@ private fun VaccinesSection(state: VaccinesListUiState) {
                     primarySublabel = "Escanear, subir PDF o foto",
                     secondaryLabel = "Añadir manualmente",
                     secondarySublabel = "Registrar vacuna",
+                    onPrimaryClick = onCapturarDocumento,
+                    onSecondaryClick = onAnadirVacuna,
                 )
             } else {
                 RecordList {
@@ -180,7 +189,7 @@ private fun VaccineRow(dose: VaccineDose) {
 }
 
 @Composable
-private fun DewormingSection(state: DewormingListUiState) {
+private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit) {
     when (state) {
         is DewormingListUiState.Loading -> LoadingRow()
         is DewormingListUiState.Error -> ErrorRow(state.message)
@@ -194,7 +203,7 @@ private fun DewormingSection(state: DewormingListUiState) {
                     primarySublabel = null,
                     secondaryLabel = "Añadir manualmente",
                     secondarySublabel = "Registrar desparasitación",
-
+                    onSecondaryClick = onAnadirDesparasitacion,
                 )
             } else {
                 RecordList {
@@ -213,7 +222,7 @@ private fun DewormingRow(application: DewormingApplication) {
 }
 
 @Composable
-private fun ConsultasSection(state: ConsultasListUiState) {
+private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: () -> Unit) {
     when (state) {
         is ConsultasListUiState.Loading -> LoadingRow()
         is ConsultasListUiState.Error -> ErrorRow(state.message)
@@ -227,6 +236,7 @@ private fun ConsultasSection(state: ConsultasListUiState) {
                     primarySublabel = null,
                     secondaryLabel = "Añadir manualmente",
                     secondarySublabel = "Registrar consulta",
+                    onSecondaryClick = onRegistrarConsulta,
                 )
             } else {
                 RecordList {
@@ -247,7 +257,7 @@ private fun ConsultaRow(consultation: Consultation) {
 }
 
 @Composable
-private fun IncidenciasSection(state: IncidenciasListUiState) {
+private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarIncidencia: () -> Unit) {
     when (state) {
         is IncidenciasListUiState.Loading -> LoadingRow()
         is IncidenciasListUiState.Error -> ErrorRow(state.message)
@@ -261,6 +271,7 @@ private fun IncidenciasSection(state: IncidenciasListUiState) {
                     primarySublabel = null,
                     secondaryLabel = "Añadir manualmente",
                     secondarySublabel =  "Registrar incidencia",
+                    onSecondaryClick = onRegistrarIncidencia,
                 )
             } else {
                 RecordList {
@@ -277,7 +288,7 @@ private fun IncidenciaRow(event: PetEvent) {
 }
 
 @Composable
-private fun RecordatoriosSection(state: RecordatoriosListUiState) {
+private fun RecordatoriosSection(state: RecordatoriosListUiState, onAnadirRecordatorio: () -> Unit) {
     when (state) {
         is RecordatoriosListUiState.Loading -> LoadingRow()
         is RecordatoriosListUiState.Error -> ErrorRow(state.message)
@@ -291,6 +302,7 @@ private fun RecordatoriosSection(state: RecordatoriosListUiState) {
                     primarySublabel = null,
                     secondaryLabel = "Añadir manualmente",
                     secondarySublabel = "Añadir recordatorio",
+                    onSecondaryClick = onAnadirRecordatorio,
                 )
             } else {
                 RecordList {
@@ -398,6 +410,8 @@ private fun EmptyStateCard(
     primarySublabel: String?,
     secondaryLabel: String?,
     secondarySublabel: String?,
+    onPrimaryClick: () -> Unit = {},
+    onSecondaryClick: () -> Unit = {},
 ) {
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -433,6 +447,7 @@ private fun EmptyStateCard(
                         icon = Icons.Filled.AddAPhoto,
                         label = primaryLabel,
                         sublabel = primarySublabel,
+                        onClick = onPrimaryClick,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
@@ -441,6 +456,7 @@ private fun EmptyStateCard(
                         icon = Icons.Filled.Edit,
                         label = secondaryLabel,
                         sublabel = secondarySublabel,
+                        onClick = onSecondaryClick,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
@@ -450,8 +466,9 @@ private fun EmptyStateCard(
 }
 
 @Composable
-private fun ActionChip(icon: ImageVector, label: String, sublabel: String, modifier: Modifier = Modifier) {
+private fun ActionChip(icon: ImageVector, label: String, sublabel: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         color = ButtonBackground,
         modifier = modifier,

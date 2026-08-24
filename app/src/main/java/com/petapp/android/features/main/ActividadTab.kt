@@ -28,6 +28,12 @@ fun ActividadTab(
     selectedPet: Pet?,
     userFullName: String?,
     onSwitchPetClick: () -> Unit,
+    onAnadirVacuna: () -> Unit = {},
+    onAnadirDesparasitacion: () -> Unit = {},
+    onRegistrarConsulta: () -> Unit = {},
+    onRegistrarIncidencia: () -> Unit = {},
+    onAnadirRecordatorio: () -> Unit = {},
+    onCapturarDocumento: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val hasPets = pets.isNotEmpty()
@@ -45,7 +51,15 @@ fun ActividadTab(
             )
         }
         if (hasPets) {
-            PetActivityContent(petId = selectedPet?.id)
+            PetActivityContent(
+                petId = selectedPet?.id,
+                onAnadirVacuna = onAnadirVacuna,
+                onAnadirDesparasitacion = onAnadirDesparasitacion,
+                onRegistrarConsulta = onRegistrarConsulta,
+                onRegistrarIncidencia = onRegistrarIncidencia,
+                onAnadirRecordatorio = onAnadirRecordatorio,
+                onCapturarDocumento = onCapturarDocumento,
+            )
         } else {
             Box(
                 modifier = Modifier

@@ -61,6 +61,12 @@ fun InicioTab(
     onSwitchPetClick: () -> Unit,
     onAddPetClick: () -> Unit,
     onMoreClick: () -> Unit,
+    onAnadirVacuna: () -> Unit = {},
+    onAnadirDesparasitacion: () -> Unit = {},
+    onRegistrarConsulta: () -> Unit = {},
+    onRegistrarIncidencia: () -> Unit = {},
+    onAnadirRecordatorio: () -> Unit = {},
+    onCapturarDocumento: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val hasPets = pets.isNotEmpty()
@@ -81,7 +87,15 @@ fun InicioTab(
             }
             if (hasPets) {
                 Spacer(modifier = Modifier.height(8.dp))
-                PetActivityContent(petId = selectedPet?.id)
+                PetActivityContent(
+                    petId = selectedPet?.id,
+                    onAnadirVacuna = onAnadirVacuna,
+                    onAnadirDesparasitacion = onAnadirDesparasitacion,
+                    onRegistrarConsulta = onRegistrarConsulta,
+                    onRegistrarIncidencia = onRegistrarIncidencia,
+                    onAnadirRecordatorio = onAnadirRecordatorio,
+                    onCapturarDocumento = onCapturarDocumento,
+                )
                 Spacer(modifier = Modifier.height(96.dp))
             } else {
                 NoPetContent(onAddPetClick = onAddPetClick)
