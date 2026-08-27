@@ -41,7 +41,9 @@ class FilesViewModel : ViewModel() {
     val detailState: StateFlow<DocumentDetailUiState> = _detailState.asStateFlow()
 
     fun fetchDocuments(petId: String) {
-        _listState.value = DocumentsListUiState.Loading
+        if (_listState.value !is DocumentsListUiState.Loaded) {
+            _listState.value = DocumentsListUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val documents: List<Document> = ApiClient.get(ApiEndpoints.petDocuments(petId))

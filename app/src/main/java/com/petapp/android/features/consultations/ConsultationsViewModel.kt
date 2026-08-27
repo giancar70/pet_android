@@ -56,7 +56,9 @@ class ConsultationsViewModel : ViewModel() {
     }
 
     fun fetchConsultas(petId: String) {
-        _listState.value = ConsultasListUiState.Loading
+        if (_listState.value !is ConsultasListUiState.Loaded) {
+            _listState.value = ConsultasListUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val consultations: List<Consultation> = ApiClient.get(ApiEndpoints.petConsultations(petId))

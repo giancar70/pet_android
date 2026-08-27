@@ -1,45 +1,49 @@
-# Implementation Plan - Fix Logout Routing to Register Pet
+# Implementation Plan - Fix Consultation Feature (CU12)
 
-The user reported that logging out takes them to the "Crear Pet" (RegisterPet) screen instead of the "Login" screen. This is likely caused by stale state in Activity-scoped ViewModels (especially `AuthViewModel`), which triggers immediate navigation when the Login screen is re-composed after logout.
-
-## User Review Required
-
-> [!IMPORTANT]
-> This change will reset the authentication and pets state upon logout. This ensures that a fresh login or logout doesn't accidentally trigger navigation based on the previous user's session data.
+This plan addresses several issues in the veterinarian consultation feature, including nomenclature changes, UI contrast improvements, keyboard accessibility, and state management fixes.
 
 ## Proposed Changes
 
-### Auth Feature
+### Consultations Feature
 
-#### [MODIFY] [AuthViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/auth/AuthViewModel.kt)
-- Add a `reset()` function to set `uiState` back to `Idle`.
+#### [MODIFY] [RegistrarConsultaScreen.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/consultations/RegistrarConsultaScreen.kt)
+- Update nomenclature: Change "Fecha de aplicación*" to "Fecha de consulta*".
+- Improve contrast:
+    - Update `SubtitleGray` to `#666666`.
+    - Add `TextDark` (`#333333`) and `PlaceholderGray` (`#8A8A8A`).
+    - Apply these colors to labels, placeholders, and main text.
+- Keyboard accessibility: Ensure the `Column` with `verticalScroll` handles the IME correctly.
+- Ensure "Guardar consulta" button is always enabled unless the required field ("Motivo") is empty or a save is in progress.
 
-#### [MODIFY] [LoginScreen.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/auth/LoginScreen.kt)
-- Call `viewModel.reset()` in a `LaunchedEffect(Unit)` to ensure the screen starts in a clean state.
+#### [MODIFY] [ConsultaDetailScreen.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/consultations/ConsultaDetailScreen.kt)
+- Update nomenclature: Change "Fecha" label to "Fecha de consulta".
+- Fix infinite loading: Improve the `Error` state to include a "Reintentar" button.
+- Improve contrast: Apply `TextDark` and `SubtitleGray` as per standards.
 
-#### [MODIFY] [RegisterScreen.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/auth/RegisterScreen.kt)
-- Call `viewModel.reset()` in a `LaunchedEffect(Unit)` to ensure the screen starts in a clean state.
+#### [MODIFY] [ConsultationsViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/consultations/ConsultationsViewModel.kt)
+- Prevent unnecessary loading states: Update `fetchConsultas` to only set `ConsultasListUiState.Loading` if the current state is not already `Loaded`.
 
-### Pets Feature
+### Other ViewModels (for consistency with CU06)
 
-#### [MODIFY] [PetsViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/pets/PetsViewModel.kt)
-- Add a `clearState()` function to reset `uiState` and `selectedPetId`.
+#### [MODIFY] [VaccinesViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/vaccines/VaccinesViewModel.kt)
+- Update `fetchVacunas` to prevent unnecessary loading states.
 
-### Main Feature
+#### [MODIFY] [DewormingViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/deworming/DewormingViewModel.kt)
+- Update `fetchDesparasitaciones` to prevent unnecessary loading states.
 
-#### [MODIFY] [UserViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/main/UserViewModel.kt)
-- Add a `reset()` function to reset `uiState`, `updateState`, and `deleteAccountState`.
+#### [MODIFY] [IncidentsViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/incidents/IncidentsViewModel.kt)
+- Update `fetchIncidencias` to prevent unnecessary loading states.
 
-#### [MODIFY] [MainScaffold.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/main/MainScaffold.kt)
-- In the `onLogout` callback, call `petsViewModel.clearState()` and `userViewModel.reset()` before (or during) the logout process to ensure all shared state is cleared.
+#### [MODIFY] [FilesViewModel.kt](file:///Users/giancarlo/Documents/Projects/PET_PROJECT/android/PetProjectAPP/app/src/main/java/com/petapp/android/features/files/FilesViewModel.kt)
+- Update `fetchDocuments` to prevent unnecessary loading states.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `analyze_file` on all modified files to ensure no syntax errors.
+- Run `analyze_file` on all modified files.
 
 ### Manual Verification
-- Log in to the app.
-- Go to the "Más" tab and log out.
-- Verify the app goes directly to the Login screen.
-- Verify that it doesn't flash the "Crear mascota" screen or automatically navigate to it.
+- **Formulario**: Verify "Fecha de consulta" label. Check contrast of labels and placeholders.
+- **Teclado**: Verify that the form can be scrolled to "Guardar consulta" when the keyboard is open.
+- **Detalle**: Verify that an error in loading the detail shows a "Reintentar" button instead of a loader.
+- **Actividad**: Navigate to a consultation detail and back. Verify that the Activity timeline does not flash a loading state.

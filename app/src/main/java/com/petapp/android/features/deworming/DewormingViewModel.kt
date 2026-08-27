@@ -57,7 +57,9 @@ class DewormingViewModel : ViewModel() {
     }
 
     fun fetchDesparasitaciones(petId: String) {
-        _listState.value = DewormingListUiState.Loading
+        if (_listState.value !is DewormingListUiState.Loaded) {
+            _listState.value = DewormingListUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val applications: List<DewormingApplication> =

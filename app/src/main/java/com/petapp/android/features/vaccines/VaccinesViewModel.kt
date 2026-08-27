@@ -56,7 +56,9 @@ class VaccinesViewModel : ViewModel() {
     }
 
     fun fetchVacunas(petId: String) {
-        _listState.value = VaccinesListUiState.Loading
+        if (_listState.value !is VaccinesListUiState.Loaded) {
+            _listState.value = VaccinesListUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val doses: List<VaccineDose> = ApiClient.get(ApiEndpoints.petVaccineDoses(petId))

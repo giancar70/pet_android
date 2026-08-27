@@ -2,6 +2,7 @@ package com.petapp.android
 
 import android.app.Application
 import com.petapp.android.core.storage.OnboardingState
+import com.petapp.android.core.storage.PetPreferences
 import com.petapp.android.core.storage.TokenStore
 
 class PetApp : Application() {
@@ -9,5 +10,6 @@ class PetApp : Application() {
         super.onCreate()
         TokenStore.init(applicationContext)
         OnboardingState.init(applicationContext)
+        PetPreferences.init(applicationContext)
     }
 }

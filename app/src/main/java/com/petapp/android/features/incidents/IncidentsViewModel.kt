@@ -82,7 +82,9 @@ class IncidentsViewModel : ViewModel() {
     }
 
     fun fetchIncidencias(petId: String) {
-        _listState.value = IncidenciasListUiState.Loading
+        if (_listState.value !is IncidenciasListUiState.Loaded) {
+            _listState.value = IncidenciasListUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val events: List<PetEvent> = ApiClient.get(ApiEndpoints.petEvents(petId))

@@ -64,6 +64,8 @@ import java.time.ZoneOffset
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
+private val TextDark = Color(0xFF333333)
+private val PlaceholderGray = Color(0xFF8A8A8A)
 private val CardBorder = Color(0xFFEFEFF4)
 
 private sealed interface ConsultaStep {
@@ -195,22 +197,24 @@ private fun ConsultaFormContent(
             Spacer(modifier = Modifier.height(20.dp))
 
             FormCard {
-                Text(text = "Motivo de consulta*", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Motivo de consulta*", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = motivo,
                     onValueChange = { motivo = it },
-                    placeholder = { Text("Ej. Tos y estornudos") },
+                    placeholder = { Text("Ej. Tos y estornudos", color = PlaceholderGray) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = CardBorder,
                         focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Fecha de aplicación*", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Fecha de consulta*", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.weight(1f)) {
@@ -223,6 +227,8 @@ private fun ConsultaFormContent(
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = CardBorder,
                                 focusedBorderColor = BrandGreen,
+                                unfocusedTextColor = TextDark,
+                                focusedTextColor = TextDark,
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -247,18 +253,20 @@ private fun ConsultaFormContent(
 
             Spacer(modifier = Modifier.height(16.dp))
             FormCard {
-                Text(text = "Síntomas", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Síntomas", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = sintomas,
                     onValueChange = { if (it.length <= 200) sintomas = it },
-                    placeholder = { Text("Ej. Tos seca, estornudos ocasionales.") },
+                    placeholder = { Text("Ej. Tos seca, estornudos ocasionales.", color = PlaceholderGray) },
                     minLines = 3,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = CardBorder,
                         focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -271,18 +279,20 @@ private fun ConsultaFormContent(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = "Hallazgos del examen físico", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Hallazgos del examen físico", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = hallazgos,
                     onValueChange = { if (it.length <= 300) hallazgos = it },
-                    placeholder = { Text("Temperatura normal. Auscultación cardiopulmonar sin ruidos anormales.") },
+                    placeholder = { Text("Temperatura normal. Auscultación cardiopulmonar sin ruidos anormales.", color = PlaceholderGray) },
                     minLines = 3,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = CardBorder,
                         focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -297,35 +307,39 @@ private fun ConsultaFormContent(
 
             Spacer(modifier = Modifier.height(16.dp))
             FormCard {
-                Text(text = "Diagnóstico", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Diagnóstico", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = diagnostico,
                     onValueChange = { diagnostico = it },
-                    placeholder = { Text("Ej. Rinitis leve") },
+                    placeholder = { Text("Ej. Rinitis leve", color = PlaceholderGray) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = CardBorder,
                         focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = "Tratamiento/Recomendaciones", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Tratamiento/Recomendaciones", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = tratamiento,
                     onValueChange = { if (it.length <= 200) tratamiento = it },
-                    placeholder = { Text("Doxiciclina 10mg/Kg cada 12hrs por 7 días. Control si no mejora.") },
+                    placeholder = { Text("Doxiciclina 10mg/Kg cada 12hrs por 7 días. Control si no mejora.", color = PlaceholderGray) },
                     minLines = 3,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = CardBorder,
                         focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -338,18 +352,20 @@ private fun ConsultaFormContent(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = "Veterinario / Clínica", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Veterinario / Clínica", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = veterinario,
                     onValueChange = { veterinario = it },
-                    placeholder = { Text("Clínica Vetra") },
+                    placeholder = { Text("Clínica Vetra", color = PlaceholderGray) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = CardBorder,
                         focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )

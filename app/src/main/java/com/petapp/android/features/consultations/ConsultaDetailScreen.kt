@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -30,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,6 +44,7 @@ import java.time.LocalDate
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
+private val TextDark = Color(0xFF333333)
 private val CardBorder = Color(0xFFEFEFF4)
 
 @Composable
@@ -80,10 +84,11 @@ fun ConsultaDetailScreen(
 
             when (val state = detailState) {
                 is ConsultaDetailUiState.Loading -> LoadingBox()
-                is ConsultaDetailUiState.Error -> Text(
-                    text = state.message,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 14.sp,
+                is ConsultaDetailUiState.Error -> ErrorBox(
+                    message = state.message,
+                    onRetry = {
+                        selectedPet?.id?.let { viewModel.fetchConsultaDetail(it, consultationId) }
+                    }
                 )
                 is ConsultaDetailUiState.Loaded -> ConsultaDetailCard(state.consultation)
             }
@@ -97,7 +102,7 @@ private fun ConsultaDetailCard(consultation: Consultation) {
     DetailCard {
         DetailRow("Motivo de consulta", consultation.reason)
         HorizontalDivider(color = CardBorder)
-        DetailRow("Fecha", formatIsoDate(consultation.consultDate))
+        DetailRow("Fecha de consulta", formatIsoDate(consultation.consultDate))
         consultation.symptoms?.takeIf { it.isNotBlank() }?.let {
             HorizontalDivider(color = CardBorder)
             DetailRow("Síntomas", it)
@@ -137,7 +142,25 @@ private fun DetailCard(content: @Composable androidx.compose.foundation.layout.C
 private fun DetailRow(label: String, value: String) {
     Column(modifier = Modifier.padding(vertical = 14.dp)) {
         Text(text = label, color = SubtitleGray, fontSize = 12.sp)
-        Text(text = value, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(text = value, color = TextDark, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    }
+}
+
+@Composable
+private fun ErrorBox(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = message, color = MaterialTheme.colorScheme.error, fontSize = 14.sp, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Text("Reintentar")
+        }
     }
 }
 

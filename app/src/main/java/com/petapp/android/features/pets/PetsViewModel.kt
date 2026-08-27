@@ -8,6 +8,7 @@ import com.petapp.android.core.model.UpdatePetRequest
 import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
 import com.petapp.android.core.network.ApiError
+import com.petapp.android.core.storage.PetPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,7 +41,7 @@ class PetsViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreatePetUiState>(CreatePetUiState.Idle)
     val createState: StateFlow<CreatePetUiState> = _createState.asStateFlow()
 
-    private val _selectedPetId = MutableStateFlow<String?>(null)
+    private val _selectedPetId = MutableStateFlow<String?>(PetPreferences.selectedPetId)
     val selectedPetId: StateFlow<String?> = _selectedPetId.asStateFlow()
 
     private val _updateState = MutableStateFlow<UpdatePetUiState>(UpdatePetUiState.Idle)
@@ -62,11 +63,13 @@ class PetsViewModel : ViewModel() {
                 val pets: List<Pet> = ApiClient.get(ApiEndpoints.PETS)
                 _uiState.value = PetsUiState.Loaded(pets)
                 val stillExists = pets.any { it.id == _selectedPetId.value }
-                _selectedPetId.value = when {
+                val newSelectedId = when {
                     selectPetId != null -> selectPetId
                     stillExists -> _selectedPetId.value
                     else -> pets.firstOrNull()?.id
                 }
+                _selectedPetId.value = newSelectedId
+                PetPreferences.selectedPetId = newSelectedId
             } catch (e: ApiError.ServerError) {
                 _uiState.value = PetsUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -77,6 +80,7 @@ class PetsViewModel : ViewModel() {
 
     fun selectPet(petId: String) {
         _selectedPetId.value = petId
+        PetPreferences.selectedPetId = petId
     }
 
     fun createPet(name: String, species: PetSpecies, birthDate: String?, imageBytes: ByteArray?) {
@@ -96,6 +100,7 @@ class PetsViewModel : ViewModel() {
                 val current = (_uiState.value as? PetsUiState.Loaded)?.pets.orEmpty()
                 _uiState.value = PetsUiState.Loaded(current + pet)
                 _selectedPetId.value = pet.id
+                PetPreferences.selectedPetId = pet.id
                 fetchPets(selectPetId = pet.id)
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreatePetUiState.Error(e.errorMessage)
@@ -131,6 +136,7 @@ class PetsViewModel : ViewModel() {
     fun clearState() {
         _uiState.value = PetsUiState.Loading
         _selectedPetId.value = null
+        PetPreferences.selectedPetId = null
         _createState.value = CreatePetUiState.Idle
         _updateState.value = UpdatePetUiState.Idle
     }
