@@ -127,4 +127,11 @@ class PetsViewModel : ViewModel() {
     fun resetUpdateState() {
         _updateState.value = UpdatePetUiState.Idle
     }
+
+    fun clearState() {
+        _uiState.value = PetsUiState.Loading
+        _selectedPetId.value = null
+        _createState.value = CreatePetUiState.Idle
+        _updateState.value = UpdatePetUiState.Idle
+    }
 }

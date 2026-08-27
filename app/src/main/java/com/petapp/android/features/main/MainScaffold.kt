@@ -453,7 +453,13 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onGestionarPetsClick = { showGestionarPets = true },
                 onMiCuentaClick = { showMiCuenta = true },
                 onAjustesClick = { showAjustes = true },
-                onLogout = { userViewModel.logout(onLoggedOut) },
+                onLogout = {
+                    petsViewModel.clearState()
+                    userViewModel.logout {
+                        userViewModel.reset()
+                        onLoggedOut()
+                    }
+                },
                 modifier = contentModifier,
             )
         }

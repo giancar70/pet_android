@@ -126,4 +126,10 @@ class UserViewModel : ViewModel() {
     fun resetDeleteAccountState() {
         _deleteAccountState.value = DeleteAccountUiState.Idle
     }
+
+    fun reset() {
+        _uiState.value = UserUiState.Loading
+        _updateState.value = UpdateUserUiState.Idle
+        _deleteAccountState.value = DeleteAccountUiState.Idle
+    }
 }

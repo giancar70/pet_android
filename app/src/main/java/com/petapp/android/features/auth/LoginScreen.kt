@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,9 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -55,6 +53,19 @@ private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
 private val CardBorder = Color(0xFFEFEFF4)
 private val FooterPillBackground = Color(0xFFC1E1D7)
+private val ButtonDisabledBg = Color(0xFFD9D9D9)
+private val ButtonDisabledText = Color(0xFF8A8A8A)
+
+private val loginEmailPattern = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+
+private fun loginEmailError(text: String): String? = when {
+    text.isBlank() -> "Introduce tu correo electrónico."
+    !loginEmailPattern.matches(text) -> "Introduce un correo electrónico válido."
+    else -> null
+}
+
+private fun loginPasswordError(text: String): String? =
+    if (text.isBlank()) "Introduce tu contraseña." else null
 
 @Composable
 fun LoginScreen(
@@ -66,8 +77,26 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
+    // Errors only *appear* on blur (set from onFocusLost below); editing a field with a
+    // visible error re-validates on every keystroke so it can clear as soon as the user
+    // corrects it -- the form starts clean with no errors shown (CU04 §2/§3).
+    var emailErr by remember { mutableStateOf<String?>(null) }
+    var passwordErr by remember { mutableStateOf<String?>(null) }
+    var generalError by remember { mutableStateOf<String?>(null) }
+
+    val isFormValid = loginEmailError(email) == null && loginPasswordError(password) == null
+    val isLoading = uiState is AuthUiState.Loading
+
+    LaunchedEffect(Unit) {
+        viewModel.reset()
+    }
+
     LaunchedEffect(uiState) {
-        if (uiState is AuthUiState.Success) onLoginSuccess()
+        when (uiState) {
+            is AuthUiState.Success -> onLoginSuccess()
+            is AuthUiState.Error -> generalError = (uiState as AuthUiState.Error).message
+            else -> {}
+        }
     }
 
     Box(
@@ -97,7 +126,7 @@ fun LoginScreen(
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top=15.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 15.dp),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -120,29 +149,39 @@ fun LoginScreen(
                     AuthTextField(
                         label = "Correo electrónico",
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            if (emailErr != null) emailErr = loginEmailError(it)
+                        },
                         leadingIcon = Icons.Filled.Email,
                         placeholder = "Ingresa tu correo",
                         keyboardType = KeyboardType.Email,
+                        errorMessage = emailErr,
+                        onFocusLost = { emailErr = loginEmailError(email) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     AuthTextField(
                         label = "Contraseña",
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            if (passwordErr != null) passwordErr = loginPasswordError(it)
+                        },
                         leadingIcon = Icons.Filled.Lock,
                         placeholder = "Ingresa tu contraseña",
                         isPassword = true,
+                        errorMessage = passwordErr,
+                        onFocusLost = { passwordErr = loginPasswordError(password) },
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (uiState is AuthUiState.Error) {
+            if (generalError != null) {
                 Text(
-                    text = (uiState as AuthUiState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
+                    text = generalError!!,
+                    color = AuthFieldErrorRed,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -150,12 +189,19 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            val isLoading = uiState is AuthUiState.Loading
             Button(
-                onClick = { viewModel.login(email, password) },
-                enabled = !isLoading,
+                onClick = {
+                    generalError = null
+                    viewModel.login(email, password)
+                },
+                enabled = isFormValid && !isLoading,
                 shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandGreen,
+                    contentColor = Color.White,
+                    disabledContainerColor = ButtonDisabledBg,
+                    disabledContentColor = ButtonDisabledText,
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -164,8 +210,10 @@ fun LoginScreen(
                     CircularProgressIndicator(
                         color = Color.White,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.height(20.dp),
+                        modifier = Modifier.height(18.dp).width(18.dp),
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Iniciando sesión…", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 } else {
                     Text(text = "Iniciar sesión", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
@@ -186,7 +234,7 @@ fun LoginScreen(
                 ) {
                     Text(text = "¿No tienes una cuenta? ", color = Color.Black, fontSize = 13.sp)
                     Text(
-                        text = "Crea una",
+                        text = "Crear cuenta",
                         color = BrandGreen,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
@@ -28,7 +29,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,22 +45,54 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.R
+import com.petapp.android.features.account.PdfViewerScreen
 
 private val ScreenGradientTop = Color(0xFFFFFFFF)
 private val ScreenGradientBottom = Color(0xFFD7FFF4)
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
+private val TextDark = Color(0xFF333333)
 private val CardBorder = Color(0xFFEFEFF4)
 private val FooterPillBackground = Color(0xFFC1E1D7)
 private val StepDotInactive = Color(0xFFCFCFCF)
+private val ButtonDisabledBg = Color(0xFFD9D9D9)
+private val ButtonDisabledText = Color(0xFF8A8A8A)
+
+private val emailPattern = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+
+private fun nameError(text: String): String? =
+    if (text.isBlank()) "Introduce tu nombre." else null
+
+private fun emailError(text: String): String? = when {
+    text.isBlank() -> "Introduce tu correo electrónico."
+    !emailPattern.matches(text) -> "Introduce un correo electrónico válido."
+    else -> null
+}
+
+private fun passwordError(text: String): String? = when {
+    text.isBlank() -> "Introduce una contraseña."
+    text.length < 8 -> "La contraseña debe tener al menos 8 caracteres."
+    else -> null
+}
+
+private fun confirmError(text: String, password: String): String? = when {
+    text.isBlank() -> "Confirma tu contraseña."
+    text != password -> "Las contraseñas no coinciden."
+    else -> null
+}
 
 @Composable
 fun RegisterScreen(
@@ -75,8 +107,43 @@ fun RegisterScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var termsAccepted by remember { mutableStateOf(false) }
 
+    // Errors only *appear* on blur (set from onFocusLost below); editing a field with a
+    // visible error re-validates on every keystroke so it can clear as soon as the user
+    // corrects it, without popping up new errors mid-typing (CU02 §1/§2).
+    var nameErr by remember { mutableStateOf<String?>(null) }
+    var emailErr by remember { mutableStateOf<String?>(null) }
+    var passwordErr by remember { mutableStateOf<String?>(null) }
+    var confirmErr by remember { mutableStateOf<String?>(null) }
+    var generalError by remember { mutableStateOf<String?>(null) }
+
+    var showTerms by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
+
+    val isFormValid = nameError(fullName) == null && emailError(email) == null &&
+        passwordError(password) == null && confirmError(confirmPassword, password) == null &&
+        termsAccepted
+    val isLoading = uiState is AuthUiState.Loading
+
+    LaunchedEffect(Unit) {
+        viewModel.reset()
+    }
+
     LaunchedEffect(uiState) {
-        if (uiState is AuthUiState.Success) onRegisterSuccess()
+        when (uiState) {
+            is AuthUiState.Success -> onRegisterSuccess()
+            is AuthUiState.EmailTaken -> emailErr = "Ya existe una cuenta con este correo electrónico."
+            is AuthUiState.Error -> generalError = (uiState as AuthUiState.Error).message
+            else -> {}
+        }
+    }
+
+    if (showTerms) {
+        PdfViewerScreen(title = "Términos y condiciones", rawResId = R.raw.terms_and_conditions, onBack = { showTerms = false })
+        return
+    }
+    if (showPrivacy) {
+        PdfViewerScreen(title = "Política de privacidad", rawResId = R.raw.privacy_policy, onBack = { showPrivacy = false })
+        return
     }
 
     Box(
@@ -119,7 +186,7 @@ fun RegisterScreen(
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top=15.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 15.dp),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -142,36 +209,57 @@ fun RegisterScreen(
                     AuthTextField(
                         label = "Nombre completo",
                         value = fullName,
-                        onValueChange = { fullName = it },
+                        onValueChange = {
+                            fullName = it
+                            if (nameErr != null) nameErr = nameError(it)
+                        },
                         leadingIcon = Icons.Filled.Person,
                         placeholder = "Ingresa tu nombre completo",
+                        errorMessage = nameErr,
+                        onFocusLost = { nameErr = nameError(fullName) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     AuthTextField(
                         label = "Correo electrónico",
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            if (emailErr != null) emailErr = emailError(it)
+                        },
                         leadingIcon = Icons.Filled.Email,
                         placeholder = "Ingresa tu correo",
                         keyboardType = KeyboardType.Email,
+                        errorMessage = emailErr,
+                        onFocusLost = { emailErr = emailError(email) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     AuthTextField(
                         label = "Contraseña",
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            if (passwordErr != null) passwordErr = passwordError(it)
+                        },
                         leadingIcon = Icons.Filled.Lock,
                         placeholder = "Crea una contraseña",
                         isPassword = true,
+                        errorMessage = passwordErr,
+                        caption = "Mínimo 8 caracteres.",
+                        onFocusLost = { passwordErr = passwordError(password) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     AuthTextField(
                         label = "Confirmar contraseña",
                         value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
+                        onValueChange = {
+                            confirmPassword = it
+                            if (confirmErr != null) confirmErr = confirmError(it, password)
+                        },
                         leadingIcon = Icons.Filled.Lock,
                         placeholder = "Repite tu contraseña",
                         isPassword = true,
+                        errorMessage = confirmErr,
+                        onFocusLost = { confirmErr = confirmError(confirmPassword, password) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -180,11 +268,29 @@ fun RegisterScreen(
                             onCheckedChange = { termsAccepted = it },
                             colors = CheckboxDefaults.colors(checkedColor = BrandGreen),
                         )
-                        Text(
-                            text = "Acepto los Términos y Condiciones y la Política de Privacidad.",
-                            fontSize = 13.sp,
-                            color = Color.Black,
+                        val termsText = buildAnnotatedString {
+                            append("Acepto los ")
+                            pushStringAnnotation(tag = "terms", annotation = "terms")
+                            withStyle(SpanStyle(color = BrandGreen, textDecoration = TextDecoration.Underline)) {
+                                append("Términos y Condiciones")
+                            }
+                            pop()
+                            append(" y la ")
+                            pushStringAnnotation(tag = "privacy", annotation = "privacy")
+                            withStyle(SpanStyle(color = BrandGreen, textDecoration = TextDecoration.Underline)) {
+                                append("Política de Privacidad")
+                            }
+                            pop()
+                            append(".")
+                        }
+                        ClickableText(
+                            text = termsText,
+                            style = TextStyle(fontSize = 13.sp, color = TextDark),
                             modifier = Modifier.padding(start = 4.dp),
+                            onClick = { offset ->
+                                termsText.getStringAnnotations("terms", offset, offset).firstOrNull()?.let { showTerms = true }
+                                termsText.getStringAnnotations("privacy", offset, offset).firstOrNull()?.let { showPrivacy = true }
+                            },
                         )
                     }
                 }
@@ -192,10 +298,10 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (uiState is AuthUiState.Error) {
+            if (generalError != null) {
                 Text(
-                    text = (uiState as AuthUiState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
+                    text = generalError!!,
+                    color = AuthFieldErrorRed,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -203,12 +309,19 @@ fun RegisterScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            val isLoading = uiState is AuthUiState.Loading
             Button(
-                onClick = { viewModel.register(fullName, email, password, confirmPassword) },
-                enabled = !isLoading && termsAccepted,
+                onClick = {
+                    generalError = null
+                    viewModel.register(fullName, email, password)
+                },
+                enabled = isFormValid && !isLoading,
                 shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandGreen,
+                    contentColor = Color.White,
+                    disabledContainerColor = ButtonDisabledBg,
+                    disabledContentColor = ButtonDisabledText,
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -217,8 +330,10 @@ fun RegisterScreen(
                     CircularProgressIndicator(
                         color = Color.White,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.height(20.dp),
+                        modifier = Modifier.height(18.dp).width(18.dp),
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Creando cuenta…", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 } else {
                     Text(text = "Crear cuenta", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
