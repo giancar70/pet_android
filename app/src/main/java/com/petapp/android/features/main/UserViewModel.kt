@@ -60,11 +60,18 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    fun logout(onComplete: () -> Unit) {
+    // Clears the token and returns immediately rather than waiting on the network
+    // round-trip -- the caller navigates to Login right away. The LOGOUT call itself
+    // is best-effort (server-side token invalidation) and fires in the background;
+    // its result doesn't affect the local logout, which is already complete once this
+    // function returns.
+    fun logout() {
+        val capturedToken = TokenStore.token
+        TokenStore.token = null
         viewModelScope.launch {
-            runCatching { ApiClient.postEmpty(ApiEndpoints.LOGOUT) }
-            TokenStore.token = null
-            onComplete()
+            if (capturedToken != null) {
+                runCatching { ApiClient.postEmpty(ApiEndpoints.LOGOUT, capturedToken) }
+            }
         }
     }
 

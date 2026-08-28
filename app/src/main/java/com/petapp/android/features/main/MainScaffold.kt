@@ -38,6 +38,7 @@ import com.petapp.android.features.files.DocumentDetailScreen
 import com.petapp.android.features.files.SubirArchivoScreen
 import com.petapp.android.features.incidents.IncidenciaDetailScreen
 import com.petapp.android.features.incidents.RegistrarIncidenciaScreen
+import com.petapp.android.features.auth.AuthViewModel
 import com.petapp.android.features.pets.GestionarPetScreen
 import com.petapp.android.features.pets.PetDetailScreen
 import com.petapp.android.features.pets.PetsUiState
@@ -62,6 +63,7 @@ private enum class MainTab {
 fun MainScaffold(onLoggedOut: () -> Unit) {
     val petsViewModel: PetsViewModel = viewModel()
     val userViewModel: UserViewModel = viewModel()
+    val authViewModel: AuthViewModel = viewModel()
 
     // Both ViewModels are Activity-scoped and outlive a single login session, so a
     // fresh fetch is needed on every entry into Main rather than relying on init{}
@@ -455,10 +457,10 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onAjustesClick = { showAjustes = true },
                 onLogout = {
                     petsViewModel.clearState()
-                    userViewModel.logout {
-                        userViewModel.reset()
-                        onLoggedOut()
-                    }
+                    userViewModel.logout()
+                    userViewModel.reset()
+                    authViewModel.reset()
+                    onLoggedOut()
                 },
                 modifier = contentModifier,
             )

@@ -93,9 +93,9 @@ object ApiClient {
         return execute(newRequest(path).post(bodyBuilder.build()).build())
     }
 
-    suspend fun postEmpty(path: String) {
+    suspend fun postEmpty(path: String, tokenOverride: String? = null) {
         val empty = ByteArray(0).toRequestBody(null)
-        val (code, bodyStr) = withContext(Dispatchers.IO) { runRequest(newRequest(path).post(empty).build()) }
+        val (code, bodyStr) = withContext(Dispatchers.IO) { runRequest(newRequest(path, tokenOverride).post(empty).build()) }
         if (code !in 200..299) throw serverErrorFor(code, bodyStr)
     }
 
@@ -105,9 +105,10 @@ object ApiClient {
     }
 
     @PublishedApi
-    internal fun newRequest(path: String): Request.Builder {
+    internal fun newRequest(path: String, tokenOverride: String? = null): Request.Builder {
         val builder = Request.Builder().url(ApiEndpoints.BASE_URL + path)
-        TokenStore.token?.let { builder.addHeader("Authorization", "Token $it") }
+        val token = tokenOverride ?: TokenStore.token
+        token?.let { builder.addHeader("Authorization", "Token $it") }
         return builder
     }
 

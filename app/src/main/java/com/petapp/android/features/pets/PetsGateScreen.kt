@@ -30,7 +30,13 @@ fun PetsGateScreen(
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is PetsUiState.Loaded -> if (state.pets.isEmpty()) onNoPets() else onHasPets()
-            is PetsUiState.Error -> onHasPets()
+            is PetsUiState.Error -> {
+                // If we get an error here, it's likely a 401 (token expired/cleared).
+                // We shouldn't proceed to Main; staying here is fine as the top-level
+                // app state should eventually react to the auth failure or the user
+                // will be sent back to Login by the auth gate in MainActivity.
+                // For now, we just don't navigate to Main.
+            }
             PetsUiState.Loading -> Unit
         }
     }
