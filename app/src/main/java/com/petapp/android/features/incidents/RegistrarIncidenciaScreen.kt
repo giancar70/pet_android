@@ -88,6 +88,8 @@ private val InfoBannerBg = Color(0xFFE3FBF1)
 private val EvidenceBoxBg = Color(0xFFF6F7F8)
 private val CardBorder = Color(0xFFEFEFF4)
 private val SuccessCardBorder = Color(0xFF3B82F6)
+private val ButtonDisabledBg = Color(0xFFD9D9D9)
+private val ButtonDisabledText = Color(0xFF8A8A8A)
 
 private data class SavedIncidencia(
     val title: String,
@@ -154,6 +156,16 @@ private fun IncidenciaFormContent(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+
+    // Recomputed on every recomposition rather than cached in state -- cheap, and it
+    // must react immediately to date/time picker changes without a separate effect.
+    val isDateTimeInFuture = LocalDateTime.of(date, time).isAfter(LocalDateTime.now())
+    val dateTimeError = if (isDateTimeInFuture) {
+        "La fecha y hora de la incidencia no pueden ser posteriores al momento actual."
+    } else {
+        null
+    }
+    val isFormValid = title.isNotBlank() && !isDateTimeInFuture
 
     // IncidentsViewModel is Activity-scoped, so a prior success can still be sitting
     // in createState when this screen re-enters. Resetting it races the effect below
@@ -364,6 +376,14 @@ private fun IncidenciaFormContent(
                     )
                 }
             }
+            if (dateTimeError != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = dateTimeError,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp,
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
             Text(text = "Añadir evidencia", fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -404,36 +424,41 @@ private fun IncidenciaFormContent(
             Button(
                 onClick = {
                     val petId = selectedPet?.id
-                    when {
-                        title.isBlank() -> validationError = "Ingresa un título para la incidencia."
-                        petId == null -> validationError = "Agrega una mascota primero."
-                        else -> {
-                            validationError = null
-                            val eventDateIso = LocalDateTime.of(date, time)
-                                .atZone(ZoneId.systemDefault())
-                                .toInstant()
-                                .toString()
-                            val photoEvidence = imageBytes?.let { EvidenceFile(it, "incidencia.jpg", "image/jpeg") }
-                            viewModel.createIncidencia(
-                                petId = petId,
-                                title = title,
-                                description = description,
-                                eventDateIso = eventDateIso,
-                                photo = photoEvidence,
-                                document = documentEvidence,
-                            )
-                        }
+                    if (petId == null) {
+                        validationError = "Agrega una mascota primero."
+                    } else {
+                        validationError = null
+                        val eventDateIso = LocalDateTime.of(date, time)
+                            .atZone(ZoneId.systemDefault())
+                            .toInstant()
+                            .toString()
+                        val photoEvidence = imageBytes?.let { EvidenceFile(it, "incidencia.jpg", "image/jpeg") }
+                        viewModel.createIncidencia(
+                            petId = petId,
+                            title = title,
+                            description = description,
+                            eventDateIso = eventDateIso,
+                            photo = photoEvidence,
+                            document = documentEvidence,
+                        )
                     }
                 },
-                enabled = !isLoading,
+                enabled = isFormValid && !isLoading,
                 shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandGreen,
+                    contentColor = Color.White,
+                    disabledContainerColor = ButtonDisabledBg,
+                    disabledContentColor = ButtonDisabledText,
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Guardando incidencia…", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 } else {
                     Text(text = "Guardar incidencia", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
@@ -596,7 +621,7 @@ private fun IncidenciaSuccessContent(
             Button(
                 onClick = onViewActivity,
                 shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen, contentColor = Color.White),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
                 Text(text = "Ver en Actividad", fontWeight = FontWeight.Bold)
