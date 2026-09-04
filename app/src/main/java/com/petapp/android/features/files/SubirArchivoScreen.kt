@@ -461,12 +461,7 @@ private fun ArchivoSeleccionadoStep(
             }
             val isUploading = uploadState is UploadDocumentUiState.Loading
             Button(
-                onClick = {
-                    val petId = selectedPet?.id
-                    if (petId != null) {
-                        viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType)
-                    }
-                },
+                onClick = { showConfirmDialog = true },
                 enabled = !isUploading && selectedPet != null,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
@@ -482,6 +477,31 @@ private fun ArchivoSeleccionadoStep(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showConfirmDialog) {
+        val petName = selectedPet?.name ?: "tu mascota"
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Confirmar archivo y mascota") },
+            text = {
+                Text("Se guardará \"${file.name}\" en el historial de $petName. Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmDialog = false
+                        val petId = selectedPet?.id
+                        if (petId != null) {
+                            viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType)
+                        }
+                    },
+                ) { Text("Guardar", color = BrandGreen) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) { Text("Cancelar") }
+            },
+        )
     }
 }
 
