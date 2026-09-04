@@ -51,6 +51,10 @@ class RemindersViewModel : ViewModel() {
     private val _deleteState = MutableStateFlow<DeleteReminderUiState>(DeleteReminderUiState.Idle)
     val deleteState: StateFlow<DeleteReminderUiState> = _deleteState.asStateFlow()
 
+    // Tracks which pet's list is currently held in _listState so fetchRecordatorios can
+    // skip a redundant network call when nothing has changed -- see that function.
+    private var lastFetchedPetId: String? = null
+
     fun fetchRecordatorioDetail(petId: String, reminderId: String) {
         _detailState.value = RecordatorioDetailUiState.Loading
         viewModelScope.launch {
@@ -73,6 +77,10 @@ class RemindersViewModel : ViewModel() {
             try {
                 ApiClient.delete(ApiEndpoints.petReminderDetail(petId, reminderId))
                 _deleteState.value = DeleteReminderUiState.Success
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? RecordatoriosListUiState.Loaded)?.let {
+                    _listState.value = RecordatoriosListUiState.Loaded(it.reminders.filterNot { r -> r.id == reminderId })
+                }
             } catch (e: ApiError.ServerError) {
                 _deleteState.value = DeleteReminderUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -85,8 +93,18 @@ class RemindersViewModel : ViewModel() {
         _deleteState.value = DeleteReminderUiState.Idle
     }
 
-    fun fetchRecordatorios(petId: String) {
-        _listState.value = RecordatoriosListUiState.Loading
+    // Blocks not affected by an unrelated navigation shouldn't refetch: if this pet's
+    // list is already loaded, re-entering the screen is a no-op instead of a fresh
+    // network round-trip. createRecordatorio/deleteRecordatorio keep this list in sync
+    // locally on success, so a real change is reflected without invalidating the cache.
+    fun fetchRecordatorios(petId: String, forceRefresh: Boolean = false) {
+        if (!forceRefresh && petId == lastFetchedPetId && _listState.value is RecordatoriosListUiState.Loaded) {
+            return
+        }
+        lastFetchedPetId = petId
+        if (_listState.value !is RecordatoriosListUiState.Loaded) {
+            _listState.value = RecordatoriosListUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val reminders: List<Reminder> = ApiClient.get(ApiEndpoints.petReminders(petId))
@@ -121,6 +139,10 @@ class RemindersViewModel : ViewModel() {
                 )
                 val reminder: Reminder = ApiClient.post(ApiEndpoints.petReminders(petId), request)
                 _createState.value = CreateReminderUiState.Success(reminder)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? RecordatoriosListUiState.Loaded)?.let {
+                    _listState.value = RecordatoriosListUiState.Loaded(listOf(reminder) + it.reminders)
+                }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateReminderUiState.Error(e.errorMessage)
             } catch (e: ApiError) {

@@ -1,5 +1,11 @@
 package com.petapp.android.features.main
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +34,6 @@ import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Vaccines
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -488,12 +493,60 @@ private fun RecordRow(
     }
 }
 
+// Shows the shape of the eventual content (icon + two text lines, like RecordRow) with a
+// pulsing shimmer instead of a spinner + "Cargando…" label, so the section's layout
+// doesn't jump once the real data arrives.
 @Composable
 private fun LoadingRow() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        CircularProgressIndicator(color = BrandGreen, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(text = "Cargando…", color = SubtitleGray, fontSize = 13.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SkeletonRecordRow()
+        SkeletonRecordRow()
+    }
+}
+
+@Composable
+private fun SkeletonRecordRow() {
+    val transition = rememberInfiniteTransition(label = "skeleton")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "skeletonAlpha",
+    )
+    val shimmerColor = PlaceholderIconBg.copy(alpha = alpha)
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, CardBorder),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(shimmerColor))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.55f)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerColor),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.35f)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerColor),
+                )
+            }
+        }
     }
 }
 

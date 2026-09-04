@@ -51,6 +51,10 @@ class DewormingViewModel : ViewModel() {
     private val _deleteState = MutableStateFlow<DeleteDewormingUiState>(DeleteDewormingUiState.Idle)
     val deleteState: StateFlow<DeleteDewormingUiState> = _deleteState.asStateFlow()
 
+    // Tracks which pet's list is currently held in _listState so fetchDesparasitaciones
+    // can skip a redundant network call when nothing has changed -- see that function.
+    private var lastFetchedPetId: String? = null
+
     fun fetchDesparasitacionDetail(petId: String, applicationId: String) {
         _detailState.value = DewormingDetailUiState.Loading
         viewModelScope.launch {
@@ -66,7 +70,15 @@ class DewormingViewModel : ViewModel() {
         }
     }
 
-    fun fetchDesparasitaciones(petId: String) {
+    // Blocks not affected by an unrelated navigation shouldn't refetch: if this pet's
+    // list is already loaded, re-entering the screen is a no-op instead of a fresh
+    // network round-trip. createDesparasitacion/deleteDesparasitacion keep this list in
+    // sync locally on success, so a real change is reflected without invalidating the cache.
+    fun fetchDesparasitaciones(petId: String, forceRefresh: Boolean = false) {
+        if (!forceRefresh && petId == lastFetchedPetId && _listState.value is DewormingListUiState.Loaded) {
+            return
+        }
+        lastFetchedPetId = petId
         if (_listState.value !is DewormingListUiState.Loaded) {
             _listState.value = DewormingListUiState.Loading
         }
@@ -106,6 +118,10 @@ class DewormingViewModel : ViewModel() {
                 val application: DewormingApplication =
                     ApiClient.post(ApiEndpoints.petDewormingApplications(petId), request)
                 _createState.value = CreateDewormingUiState.Success(application)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? DewormingListUiState.Loaded)?.let {
+                    _listState.value = DewormingListUiState.Loaded(listOf(application) + it.applications)
+                }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateDewormingUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -126,6 +142,10 @@ class DewormingViewModel : ViewModel() {
             try {
                 ApiClient.delete(ApiEndpoints.petDewormingApplicationDetail(petId, applicationId))
                 _deleteState.value = DeleteDewormingUiState.Success
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? DewormingListUiState.Loaded)?.let {
+                    _listState.value = DewormingListUiState.Loaded(it.applications.filterNot { app -> app.id == applicationId })
+                }
             } catch (e: ApiError.ServerError) {
                 _deleteState.value = DeleteDewormingUiState.Error(e.errorMessage)
             } catch (e: ApiError) {

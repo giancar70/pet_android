@@ -33,6 +33,7 @@ enum class ReminderCategory(val apiValue: String, val label: String) {
     DEWORMING("deworming", "Desparasitación"),
     MEDICATION("medication", "Medicación"),
     CONSULTATION("consultation", "Consulta"),
+    OTHER("other", "Otro"),
 }
 
 enum class ReminderFrequency(val apiValue: String, val label: String) {

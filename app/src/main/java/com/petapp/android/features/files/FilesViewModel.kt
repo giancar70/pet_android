@@ -40,7 +40,19 @@ class FilesViewModel : ViewModel() {
     private val _detailState = MutableStateFlow<DocumentDetailUiState>(DocumentDetailUiState.Loading)
     val detailState: StateFlow<DocumentDetailUiState> = _detailState.asStateFlow()
 
-    fun fetchDocuments(petId: String) {
+    // Tracks which pet's list is currently held in _listState so fetchDocuments can
+    // skip a redundant network call when nothing has changed -- see that function.
+    private var lastFetchedPetId: String? = null
+
+    // Blocks not affected by an unrelated navigation shouldn't refetch: if this pet's
+    // list is already loaded, re-entering the screen is a no-op instead of a fresh
+    // network round-trip. uploadDocument keeps this list in sync locally on success, so
+    // a real change is reflected without invalidating the cache.
+    fun fetchDocuments(petId: String, forceRefresh: Boolean = false) {
+        if (!forceRefresh && petId == lastFetchedPetId && _listState.value is DocumentsListUiState.Loaded) {
+            return
+        }
+        lastFetchedPetId = petId
         if (_listState.value !is DocumentsListUiState.Loaded) {
             _listState.value = DocumentsListUiState.Loading
         }
@@ -82,6 +94,10 @@ class FilesViewModel : ViewModel() {
                     mimeType = mimeType,
                 )
                 _uploadState.value = UploadDocumentUiState.Success(document)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? DocumentsListUiState.Loaded)?.let {
+                    _listState.value = DocumentsListUiState.Loaded(listOf(document) + it.documents)
+                }
             } catch (e: ApiError.ServerError) {
                 _uploadState.value = UploadDocumentUiState.Error(e.errorMessage)
             } catch (e: ApiError) {

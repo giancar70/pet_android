@@ -63,6 +63,10 @@ class IncidentsViewModel : ViewModel() {
     private val _deleteState = MutableStateFlow<DeleteIncidenciaUiState>(DeleteIncidenciaUiState.Idle)
     val deleteState: StateFlow<DeleteIncidenciaUiState> = _deleteState.asStateFlow()
 
+    // Tracks which pet's list is currently held in _listState so fetchIncidencias can
+    // skip a redundant network call when nothing has changed -- see that function.
+    private var lastFetchedPetId: String? = null
+
     fun fetchIncidenciaDetail(petId: String, eventId: String) {
         _detailState.value = IncidenciaDetailUiState.Loading
         viewModelScope.launch {
@@ -91,7 +95,15 @@ class IncidentsViewModel : ViewModel() {
         }
     }
 
-    fun fetchIncidencias(petId: String) {
+    // Blocks not affected by an unrelated navigation shouldn't refetch: if this pet's
+    // list is already loaded, re-entering the screen is a no-op instead of a fresh
+    // network round-trip. createIncidencia/deleteIncidencia keep this list in sync
+    // locally on success, so a real change is reflected without invalidating the cache.
+    fun fetchIncidencias(petId: String, forceRefresh: Boolean = false) {
+        if (!forceRefresh && petId == lastFetchedPetId && _listState.value is IncidenciasListUiState.Loaded) {
+            return
+        }
+        lastFetchedPetId = petId
         if (_listState.value !is IncidenciasListUiState.Loaded) {
             _listState.value = IncidenciasListUiState.Loading
         }
@@ -126,6 +138,10 @@ class IncidentsViewModel : ViewModel() {
                 val event: PetEvent = ApiClient.post(ApiEndpoints.petEvents(petId), request)
                 listOfNotNull(photo, document).forEach { evidence -> uploadEvidence(petId, event.id, evidence) }
                 _createState.value = CreateEventUiState.Success(event)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? IncidenciasListUiState.Loaded)?.let {
+                    _listState.value = IncidenciasListUiState.Loaded(listOf(event) + it.events)
+                }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateEventUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -162,6 +178,10 @@ class IncidentsViewModel : ViewModel() {
             try {
                 ApiClient.delete(ApiEndpoints.petEventDetail(petId, eventId))
                 _deleteState.value = DeleteIncidenciaUiState.Success
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? IncidenciasListUiState.Loaded)?.let {
+                    _listState.value = IncidenciasListUiState.Loaded(it.events.filterNot { event -> event.id == eventId })
+                }
             } catch (e: ApiError.ServerError) {
                 _deleteState.value = DeleteIncidenciaUiState.Error(e.errorMessage)
             } catch (e: ApiError) {

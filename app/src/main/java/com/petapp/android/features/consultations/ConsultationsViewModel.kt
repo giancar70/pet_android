@@ -51,6 +51,10 @@ class ConsultationsViewModel : ViewModel() {
     private val _deleteState = MutableStateFlow<DeleteConsultaUiState>(DeleteConsultaUiState.Idle)
     val deleteState: StateFlow<DeleteConsultaUiState> = _deleteState.asStateFlow()
 
+    // Tracks which pet's list is currently held in _listState so fetchConsultas can
+    // skip a redundant network call when nothing has changed -- see that function.
+    private var lastFetchedPetId: String? = null
+
     fun fetchConsultaDetail(petId: String, consultationId: String) {
         _detailState.value = ConsultaDetailUiState.Loading
         viewModelScope.launch {
@@ -65,7 +69,15 @@ class ConsultationsViewModel : ViewModel() {
         }
     }
 
-    fun fetchConsultas(petId: String) {
+    // Blocks not affected by an unrelated navigation shouldn't refetch: if this pet's
+    // list is already loaded, re-entering the screen is a no-op instead of a fresh
+    // network round-trip. createConsulta/deleteConsulta keep this list in sync locally
+    // on success, so a real change is reflected without invalidating the cache.
+    fun fetchConsultas(petId: String, forceRefresh: Boolean = false) {
+        if (!forceRefresh && petId == lastFetchedPetId && _listState.value is ConsultasListUiState.Loaded) {
+            return
+        }
+        lastFetchedPetId = petId
         if (_listState.value !is ConsultasListUiState.Loaded) {
             _listState.value = ConsultasListUiState.Loading
         }
@@ -105,6 +117,10 @@ class ConsultationsViewModel : ViewModel() {
                 )
                 val consultation: Consultation = ApiClient.post(ApiEndpoints.petConsultations(petId), request)
                 _createState.value = CreateConsultaUiState.Success(consultation)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? ConsultasListUiState.Loaded)?.let {
+                    _listState.value = ConsultasListUiState.Loaded(listOf(consultation) + it.consultations)
+                }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateConsultaUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -125,6 +141,10 @@ class ConsultationsViewModel : ViewModel() {
             try {
                 ApiClient.delete(ApiEndpoints.petConsultationDetail(petId, consultationId))
                 _deleteState.value = DeleteConsultaUiState.Success
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? ConsultasListUiState.Loaded)?.let {
+                    _listState.value = ConsultasListUiState.Loaded(it.consultations.filterNot { c -> c.id == consultationId })
+                }
             } catch (e: ApiError.ServerError) {
                 _deleteState.value = DeleteConsultaUiState.Error(e.errorMessage)
             } catch (e: ApiError) {

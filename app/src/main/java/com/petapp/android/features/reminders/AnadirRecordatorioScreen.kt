@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.LocalPharmacy
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.MonitorWeight
@@ -108,6 +107,7 @@ fun iconFor(category: ReminderCategory): ImageVector = when (category) {
     ReminderCategory.DEWORMING -> Icons.Filled.Medication
     ReminderCategory.MEDICATION -> Icons.Filled.LocalPharmacy
     ReminderCategory.CONSULTATION -> Icons.Filled.MedicalServices
+    ReminderCategory.OTHER -> Icons.Filled.MoreHoriz
 }
 
 @Composable
@@ -152,7 +152,7 @@ private fun RecordatorioFormContent(
     var time by remember { mutableStateOf(LocalTime.now()) }
     var frequency by remember { mutableStateOf(ReminderFrequency.NONE) }
     var customDays by remember { mutableStateOf("") }
-    var nota by remember { mutableStateOf("") }
+    var titulo by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showFrequencyDialog by remember { mutableStateOf(false) }
@@ -264,6 +264,28 @@ private fun RecordatorioFormContent(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+            RecordatorioRow(
+                icon = Icons.Filled.EditNote,
+                title = "Título*",
+                subtitle = titulo.ifBlank { "Añade un título obligatorio e identificable" },
+                onClick = null,
+            ) {
+                OutlinedTextField(
+                    value = titulo,
+                    onValueChange = { if (it.length <= 180) titulo = it },
+                    placeholder = { Text("Ej: Vacuna múltiple (quíntuple)") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = CardBorder,
+                        focusedBorderColor = BrandGreen,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(modifier = Modifier.weight(1f)) {
                     RecordatorioRow(
@@ -294,33 +316,9 @@ private fun RecordatorioFormContent(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            RecordatorioRow(
-                icon = Icons.Filled.EditNote,
-                title = "Nota adicional",
-                subtitle = if (nota.isBlank()) "Opcional — se usa como título del recordatorio" else nota,
-                onClick = null,
-            ) {
-                OutlinedTextField(
-                    value = nota,
-                    onValueChange = { if (it.length <= 180) nota = it },
-                    placeholder = { Text("Ej: Vacuna múltiple (quíntuple)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = CardBorder,
-                        focusedBorderColor = BrandGreen,
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp),
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
             RecordatorioRow(icon = Icons.Filled.NotificationsActive, title = "Aviso previo", subtitle = "Próximamente disponible", onClick = null)
             Spacer(modifier = Modifier.height(10.dp))
             RecordatorioRow(icon = Icons.Filled.PeopleAlt, title = "Añadir personas", subtitle = "Comparte este recordatorio · Próximamente", onClick = null)
-            Spacer(modifier = Modifier.height(10.dp))
-            RecordatorioRow(icon = Icons.Filled.LocationOn, title = "Añadir ubicación", subtitle = "Opcional · Próximamente", onClick = null)
 
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateReminderUiState.Error)?.message
@@ -342,17 +340,17 @@ private fun RecordatorioFormContent(
                     val dueDateTime = LocalDateTime.of(date, time)
                     when {
                         petId == null -> validationError = "Agrega una mascota primero."
+                        titulo.isBlank() -> validationError = "Añade un título obligatorio e identificable."
                         !dueDateTime.isAfter(LocalDateTime.now()) ->
                             validationError = "La fecha y hora deben ser posteriores al momento actual."
                         frequency == ReminderFrequency.CUSTOM_DAYS && (days == null || days <= 0) ->
                             validationError = "Ingresa cada cuántos días se repite."
                         else -> {
                             validationError = null
-                            val title = nota.takeIf { it.isNotBlank() } ?: "Recordatorio de ${category.label}"
                             viewModel.createRecordatorio(
                                 petId = petId,
                                 category = category.apiValue,
-                                title = title,
+                                title = titulo.trim(),
                                 dueDateIso = dueDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")),
                                 frequency = frequency.apiValue,
                                 customDays = if (frequency == ReminderFrequency.CUSTOM_DAYS) days else null,

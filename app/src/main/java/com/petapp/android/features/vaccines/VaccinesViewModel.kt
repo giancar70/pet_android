@@ -51,6 +51,11 @@ class VaccinesViewModel : ViewModel() {
     private val _deleteState = MutableStateFlow<DeleteVaccineDoseUiState>(DeleteVaccineDoseUiState.Idle)
     val deleteState: StateFlow<DeleteVaccineDoseUiState> = _deleteState.asStateFlow()
 
+    // Tracks which pet's list is currently held in _listState so fetchVacunas can skip
+    // a redundant network call when nothing has changed (e.g. re-entering Inicio after
+    // navigating to an unrelated screen) -- see fetchVacunas.
+    private var lastFetchedPetId: String? = null
+
     fun fetchVacunaDetail(petId: String, doseId: String) {
         _detailState.value = VaccineDoseDetailUiState.Loading
         viewModelScope.launch {
@@ -65,7 +70,15 @@ class VaccinesViewModel : ViewModel() {
         }
     }
 
-    fun fetchVacunas(petId: String) {
+    // Blocks not affected by an unrelated navigation shouldn't refetch: if this pet's
+    // list is already loaded, re-entering the screen is a no-op instead of a fresh
+    // network round-trip. createVacuna/deleteVacuna keep this list in sync locally on
+    // success, so a real change is reflected without needing to invalidate the cache.
+    fun fetchVacunas(petId: String, forceRefresh: Boolean = false) {
+        if (!forceRefresh && petId == lastFetchedPetId && _listState.value is VaccinesListUiState.Loaded) {
+            return
+        }
+        lastFetchedPetId = petId
         if (_listState.value !is VaccinesListUiState.Loaded) {
             _listState.value = VaccinesListUiState.Loading
         }
@@ -101,6 +114,10 @@ class VaccinesViewModel : ViewModel() {
                 )
                 val dose: VaccineDose = ApiClient.post(ApiEndpoints.petVaccineDoses(petId), request)
                 _createState.value = CreateVaccineDoseUiState.Success(dose)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? VaccinesListUiState.Loaded)?.let {
+                    _listState.value = VaccinesListUiState.Loaded(listOf(dose) + it.doses)
+                }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateVaccineDoseUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -121,6 +138,10 @@ class VaccinesViewModel : ViewModel() {
             try {
                 ApiClient.delete(ApiEndpoints.petVaccineDoseDetail(petId, doseId))
                 _deleteState.value = DeleteVaccineDoseUiState.Success
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? VaccinesListUiState.Loaded)?.let {
+                    _listState.value = VaccinesListUiState.Loaded(it.doses.filterNot { dose -> dose.id == doseId })
+                }
             } catch (e: ApiError.ServerError) {
                 _deleteState.value = DeleteVaccineDoseUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
