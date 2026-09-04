@@ -12,16 +12,22 @@ object TokenStore {
     private lateinit var prefs: SharedPreferences
 
     fun init(context: Context) {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
+        try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            prefs = EncryptedSharedPreferences.create(
+                context,
+                PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        } catch (e: Exception) {
+            // Fallback to standard SharedPreferences if Encrypted version fails (e.g. KeyStore
+            // corruption or hardware issues on certain devices).
+            prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }
     }
 
     var token: String?

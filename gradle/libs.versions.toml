@@ -13,6 +13,7 @@ coilCompose = "2.7.0"
 googleServices = "4.5.0"
 firebaseBom = "34.18.0"
 firebaseAppDistribution = "5.3.0"
+firebaseCrashlytics = "3.0.8"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -33,6 +34,7 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -41,3 +43,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 firebase-appdistribution = { id = "com.google.firebase.appdistribution", version.ref = "firebaseAppDistribution" }
+google-firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlytics" }
