@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.petapp.android.core.model.Pet
+import com.petapp.android.features.pets.formatPetAge
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -82,6 +85,27 @@ fun GreetingHeader(
             if (hasPets && selectedPet != null) {
                 val subtitle = selectedPet.breed?.takeIf { it.isNotBlank() } ?: speciesLabel(selectedPet.species)
                 Text(text = subtitle, color = SubtitleGray, fontSize = 15.sp)
+
+                val age = formatPetAge(selectedPet.birthDate)
+                val weight = selectedPet.weightKg?.takeIf { it.isNotBlank() }
+                if (age != null || weight != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (age != null) {
+                            Icon(Icons.Filled.Pets, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = age, color = SubtitleGray, fontSize = 13.sp)
+                        }
+                        if (age != null && weight != null) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+                        if (weight != null) {
+                            Icon(Icons.Filled.ShoppingBag, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "${weight}Kg", color = SubtitleGray, fontSize = 13.sp)
+                        }
+                    }
+                }
             }
         }
         PetAvatar(pet = if (hasPets) selectedPet else null, showStatusDot = hasPets)

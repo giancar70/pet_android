@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -30,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,8 +45,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.R
 import com.petapp.android.core.model.Pet
+import com.petapp.android.features.deworming.DewormingListUiState
+import com.petapp.android.features.deworming.DewormingViewModel
+import com.petapp.android.features.vaccines.VaccinesListUiState
+import com.petapp.android.features.vaccines.VaccinesViewModel
 import com.petapp.android.ui.theme.PetProjectTheme
 
 private val BrandGreen = Color(0xFF406E5F)
@@ -52,6 +60,7 @@ private val ContentBackground = Color(0xFFE3FBF1)
 private val CardBorder = Color(0xFFEFEFF4)
 private val IllustrationBg = Color(0xFFD9FEF2)
 private val InfoIconBg = Color(0xFFD9FEF2)
+private val IncidentRed = Color(0xFFC0392B)
 
 @Composable
 fun InicioTab(
@@ -92,6 +101,8 @@ fun InicioTab(
             }
             if (hasPets) {
                 Spacer(modifier = Modifier.height(8.dp))
+                TodoAlDiaBadge()
+                Spacer(modifier = Modifier.height(8.dp))
                 PetActivityContent(
                     petId = selectedPet?.id,
                     onAnadirVacuna = onAnadirVacuna,
@@ -121,6 +132,48 @@ fun InicioTab(
                     .padding(24.dp),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
+            }
+        }
+    }
+}
+
+// Reads the same (Activity-scoped, shared) Vaccines/DewormingViewModel instances that
+// PetActivityContent's sections populate -- no separate fetch needed here.
+@Composable
+private fun TodoAlDiaBadge(
+    vaccinesViewModel: VaccinesViewModel = viewModel(),
+    dewormingViewModel: DewormingViewModel = viewModel(),
+) {
+    val vaccinesState by vaccinesViewModel.listState.collectAsState()
+    val dewormingState by dewormingViewModel.listState.collectAsState()
+    val doses = (vaccinesState as? VaccinesListUiState.Loaded)?.doses
+    val applications = (dewormingState as? DewormingListUiState.Loaded)?.applications
+    if (doses == null && applications == null) return
+    val hasOverdue = doses.orEmpty().any { dueStatus(it.nextDueOn)?.isOverdue == true } ||
+        applications.orEmpty().any { dueStatus(it.nextDueOn)?.isOverdue == true }
+
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = if (hasOverdue) IncidentRed else BrandGreen,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (hasOverdue) Icons.Filled.Warning else Icons.Filled.Shield,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (hasOverdue) "Tienes registros vencidos" else "Todo al día",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                )
             }
         }
     }

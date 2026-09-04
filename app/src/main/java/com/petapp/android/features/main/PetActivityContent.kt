@@ -70,6 +70,7 @@ import com.petapp.android.ui.theme.PetProjectTheme
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -191,7 +192,59 @@ private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Un
 
 @Composable
 private fun VaccineRow(dose: VaccineDose) {
-    RecordRow(icon = Icons.Filled.Vaccines, title = dose.vaccine, subtitle = formatIsoDate(dose.appliedOn))
+    val dueInfo = dueStatus(dose.nextDueOn)
+    if (dueInfo == null) {
+        RecordRow(icon = Icons.Filled.Vaccines, title = dose.vaccine, subtitle = formatIsoDate(dose.appliedOn))
+    } else {
+        RecordRow(
+            icon = Icons.Filled.Vaccines,
+            title = dose.vaccine,
+            subtitle = dueInfo.subtitle,
+            trailing = {
+                DueStatusPill(
+                    label = dueInfo.pillLabel,
+                    color = if (dueInfo.isOverdue) IncidentRed else BrandGreen,
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun DueStatusPill(label: String, color: Color) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = Color.White,
+        border = BorderStroke(1.5.dp, color),
+    ) {
+        Text(
+            text = label,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+        )
+    }
+}
+
+internal data class DueInfo(val subtitle: String, val pillLabel: String, val isOverdue: Boolean)
+
+// "Vence en N días" while there's still time, "Venció hace N días" once the date has
+// passed -- null when there's no próxima vacunación / próxima dosis set (nothing to
+// show). Shared by vaccines and deworming, both of which track a next-due date.
+internal fun dueStatus(nextDueOnIso: String?): DueInfo? {
+    if (nextDueOnIso.isNullOrBlank()) return null
+    val dueDate = try {
+        LocalDate.parse(nextDueOnIso)
+    } catch (e: Exception) {
+        return null
+    }
+    val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), dueDate)
+    return if (daysUntil < 0) {
+        DueInfo(subtitle = "Venció hace ${-daysUntil} días", pillLabel = "Vencido", isOverdue = true)
+    } else {
+        DueInfo(subtitle = "Vence en $daysUntil días", pillLabel = "Al día", isOverdue = false)
+    }
 }
 
 @Composable
@@ -223,8 +276,22 @@ private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacio
 @Composable
 private fun DewormingRow(application: DewormingApplication) {
     val title = application.productName?.takeIf { it.isNotBlank() } ?: "Desparasitación"
-    val subtitle = formatIsoDate(application.appliedOn)
-    RecordRow(icon = Icons.Filled.Medication, title = title, subtitle = subtitle)
+    val dueInfo = dueStatus(application.nextDueOn)
+    if (dueInfo == null) {
+        RecordRow(icon = Icons.Filled.Medication, title = title, subtitle = formatIsoDate(application.appliedOn))
+    } else {
+        RecordRow(
+            icon = Icons.Filled.Medication,
+            title = title,
+            subtitle = dueInfo.subtitle,
+            trailing = {
+                DueStatusPill(
+                    label = dueInfo.pillLabel,
+                    color = if (dueInfo.isOverdue) IncidentRed else BrandGreen,
+                )
+            },
+        )
+    }
 }
 
 @Composable
@@ -383,6 +450,7 @@ private fun RecordRow(
     subtitle: String,
     iconBg: Color = RecordIconBg,
     iconTint: Color = BrandGreen,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -404,9 +472,13 @@ private fun RecordRow(
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(text = subtitle, color = SubtitleGray, fontSize = 12.sp)
+            }
+            if (trailing != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                trailing()
             }
         }
     }
