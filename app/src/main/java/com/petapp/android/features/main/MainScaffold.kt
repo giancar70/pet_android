@@ -414,6 +414,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onRegistrarIncidencia = { showRegistrarIncidencia = true },
                 onAnadirRecordatorio = { showAnadirRecordatorio = true },
                 onCapturarDocumento = { showCapturarDocumento = true },
+                onSubirArchivo = { showSubirArchivo = true },
                 onVerVacunas = {
                     pendingActivityFilter = ActivityCategory.VACCINE
                     currentTab = MainTab.ACTIVIDAD

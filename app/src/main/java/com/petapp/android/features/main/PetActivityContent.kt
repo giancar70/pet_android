@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MedicalServices
@@ -97,6 +98,7 @@ fun PetActivityContent(
     onRegistrarIncidencia: () -> Unit = {},
     onAnadirRecordatorio: () -> Unit = {},
     onCapturarDocumento: () -> Unit = {},
+    onSubirArchivo: () -> Unit = {},
     onVerVacunas: () -> Unit = {},
     onVerDesparasitacion: () -> Unit = {},
     onVerConsultas: () -> Unit = {},
@@ -157,7 +159,7 @@ fun PetActivityContent(
 
         SectionHeader(icon = Icons.Filled.Description, title = "Documentos", onVerTodo = onVerDocumentos)
         Spacer(modifier = Modifier.height(10.dp))
-        DocumentsSection(documentsState, onCapturarDocumento)
+        DocumentsSection(documentsState, onCapturarDocumento, onSubirArchivo)
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -361,7 +363,7 @@ private fun IncidenciaRow(event: PetEvent) {
 }
 
 @Composable
-private fun DocumentsSection(state: DocumentsListUiState, onCapturarDocumento: () -> Unit) {
+private fun DocumentsSection(state: DocumentsListUiState, onCapturarDocumento: () -> Unit, onSubirArchivo: () -> Unit) {
     when (state) {
         is DocumentsListUiState.Loading -> LoadingRow()
         is DocumentsListUiState.Error -> ErrorRow(state.message)
@@ -373,9 +375,11 @@ private fun DocumentsSection(state: DocumentsListUiState, onCapturarDocumento: (
                     description = "Guarda análisis, estudios, cartillas o cualquier documento importante.",
                     primaryLabel = "Capturar documento",
                     primarySublabel = "Escanear, subir PDF o foto",
-                    secondaryLabel = null,
-                    secondarySublabel = null,
+                    secondaryLabel = "Subir Archivo",
+                    secondarySublabel = "Sube un PDF o imagen",
+                    secondaryIcon = Icons.Filled.CloudUpload,
                     onPrimaryClick = onCapturarDocumento,
+                    onSecondaryClick = onSubirArchivo,
                 )
             } else {
                 RecordList {
@@ -558,6 +562,8 @@ private fun EmptyStateCard(
     primarySublabel: String?,
     secondaryLabel: String?,
     secondarySublabel: String?,
+    primaryIcon: ImageVector = Icons.Filled.AddAPhoto,
+    secondaryIcon: ImageVector = Icons.Filled.Edit,
     onPrimaryClick: () -> Unit = {},
     onSecondaryClick: () -> Unit = {},
 ) {
@@ -592,7 +598,7 @@ private fun EmptyStateCard(
             ) {
                 if (primaryLabel != null && primarySublabel != null) {
                     ActionChip(
-                        icon = Icons.Filled.AddAPhoto,
+                        icon = primaryIcon,
                         label = primaryLabel,
                         sublabel = primarySublabel,
                         onClick = onPrimaryClick,
@@ -601,7 +607,7 @@ private fun EmptyStateCard(
                 }
                 if (secondaryLabel != null && secondarySublabel != null) {
                     ActionChip(
-                        icon = Icons.Filled.Edit,
+                        icon = secondaryIcon,
                         label = secondaryLabel,
                         sublabel = secondarySublabel,
                         onClick = onSecondaryClick,
