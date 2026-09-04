@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PeopleAlt
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.Button
@@ -86,8 +87,10 @@ import com.petapp.android.features.incidents.spanishDate
 import com.petapp.android.features.main.GreetingHeader
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -99,7 +102,8 @@ private sealed interface RecordatorioStep {
     data object Success : RecordatorioStep
 }
 
-private fun iconFor(category: ReminderCategory): ImageVector = when (category) {
+// Not file-private -- reused by RecordatoriosListScreen/RecordatorioDetailScreen.
+fun iconFor(category: ReminderCategory): ImageVector = when (category) {
     ReminderCategory.VACCINE -> Icons.Filled.Vaccines
     ReminderCategory.DEWORMING -> Icons.Filled.Medication
     ReminderCategory.MEDICATION -> Icons.Filled.LocalPharmacy
@@ -112,7 +116,6 @@ fun AnadirRecordatorioScreen(
     userFullName: String?,
     onBack: () -> Unit,
     onFinish: () -> Unit,
-    onViewActivity: () -> Unit,
     viewModel: RemindersViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<RecordatorioStep>(RecordatorioStep.Form) }
@@ -128,7 +131,6 @@ fun AnadirRecordatorioScreen(
         is RecordatorioStep.Success -> RecordatorioSuccessContent(
             selectedPet = selectedPet,
             userFullName = userFullName,
-            onViewActivity = onViewActivity,
             onFinish = onFinish,
         )
     }
@@ -262,12 +264,24 @@ private fun RecordatorioFormContent(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            RecordatorioRow(
-                icon = Icons.Filled.Event,
-                title = "Fecha y hora",
-                subtitle = "${spanishDate(date)} - %02d:%02d".format(time.hour, time.minute),
-                onClick = { showDatePicker = true },
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
+                    RecordatorioRow(
+                        icon = Icons.Filled.Event,
+                        title = "Fecha",
+                        subtitle = spanishDate(date),
+                        onClick = { showDatePicker = true },
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    RecordatorioRow(
+                        icon = Icons.Filled.Schedule,
+                        title = "Hora",
+                        subtitle = "%02d:%02d".format(time.hour, time.minute),
+                        onClick = { showTimePicker = true },
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Row {
                 Box(modifier = Modifier.weight(1f)) {
@@ -325,8 +339,11 @@ private fun RecordatorioFormContent(
                 onClick = {
                     val petId = selectedPet?.id
                     val days = customDays.toIntOrNull()
+                    val dueDateTime = LocalDateTime.of(date, time)
                     when {
                         petId == null -> validationError = "Agrega una mascota primero."
+                        !dueDateTime.isAfter(LocalDateTime.now()) ->
+                            validationError = "La fecha y hora deben ser posteriores al momento actual."
                         frequency == ReminderFrequency.CUSTOM_DAYS && (days == null || days <= 0) ->
                             validationError = "Ingresa cada cuántos días se repite."
                         else -> {
@@ -336,7 +353,7 @@ private fun RecordatorioFormContent(
                                 petId = petId,
                                 category = category.apiValue,
                                 title = title,
-                                dueDateIso = date.toString(),
+                                dueDateIso = dueDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")),
                                 frequency = frequency.apiValue,
                                 customDays = if (frequency == ReminderFrequency.CUSTOM_DAYS) days else null,
                                 notifyPush = true,
@@ -500,7 +517,6 @@ private fun FrequencyDialog(
 private fun RecordatorioSuccessContent(
     selectedPet: Pet?,
     userFullName: String?,
-    onViewActivity: () -> Unit,
     onFinish: () -> Unit,
 ) {
     Column(
@@ -536,15 +552,6 @@ private fun RecordatorioSuccessContent(
         Spacer(modifier = Modifier.weight(1f))
 
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-            Button(
-                onClick = onViewActivity,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) {
-                Text(text = "Ver en Actividad", fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(12.dp))
             OutlinedButton(
                 onClick = onFinish,
                 shape = RoundedCornerShape(28.dp),

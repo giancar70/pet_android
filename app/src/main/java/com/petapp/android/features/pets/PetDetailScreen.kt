@@ -73,8 +73,6 @@ import java.time.format.DateTimeFormatter
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
 private val CardBorder = Color(0xFFEFEFF4)
-private val PendingBg = Color(0xFFFBE3D6)
-private val PendingText = Color(0xFFB4552B)
 private val DeleteRed = Color(0xFFC0392B)
 
 private enum class DetailField { NAME, SPECIES, BREED, SEX, WEIGHT, COLOR, MICROCHIP, NOTES }
@@ -183,7 +181,7 @@ fun PetDetailScreen(
             DetailCard {
                 DetailRow(label = "Color", value = color.ifBlank { "Agregar" }) { activeDialog = DetailField.COLOR }
                 HorizontalDivider(color = CardBorder)
-                MicrochipRow(microchip = microchip) { activeDialog = DetailField.MICROCHIP }
+                DetailRow(label = "Microchip", value = microchip.ifBlank { "Agregar" }) { activeDialog = DetailField.MICROCHIP }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -349,7 +347,10 @@ fun PetDetailScreen(
             title = "Peso (Kg)",
             initialValue = weightKg,
             keyboardType = KeyboardType.Decimal,
-            onConfirm = { weightKg = it },
+            validator = ::weightValidationError,
+            // Normalized to a period here -- the backend's weight_kg is a DecimalField
+            // (max_digits=5, decimal_places=2) and rejects a comma decimal separator.
+            onConfirm = { weightKg = it.trim().replace(',', '.') },
             onDismiss = { activeDialog = null },
         )
         DetailField.COLOR -> EditTextDialog(
@@ -429,65 +430,56 @@ private fun DetailRow(label: String, value: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MicrochipRow(microchip: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = "Microchip", color = SubtitleGray, fontSize = 15.sp)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (microchip.isBlank()) {
-                Surface(shape = RoundedCornerShape(12.dp), color = PendingBg) {
-                    Text(
-                        text = "Microchip pendiente",
-                        color = PendingText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-            } else {
-                Text(text = microchip, fontWeight = FontWeight.Medium, fontSize = 15.sp)
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable
 private fun EditTextDialog(
     title: String,
     initialValue: String,
     keyboardType: KeyboardType = KeyboardType.Text,
     singleLine: Boolean = true,
+    validator: (String) -> String? = { null },
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf(initialValue) }
+    val errorMessage = validator(text)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = singleLine,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = singleLine,
+                    isError = errorMessage != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+            }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text); onDismiss() }) { Text("Guardar") }
+            TextButton(onClick = { onConfirm(text); onDismiss() }, enabled = errorMessage == null) { Text("Guardar") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancelar") }
         },
     )
+}
+
+// Weight is optional (blank = no weight recorded), but when a value is entered it must
+// be numeric, decimal allowed (comma or period), and strictly greater than zero.
+private fun weightValidationError(input: String): String? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.replace(',', '.').toDoubleOrNull()
+    return when {
+        value == null -> "Ingresa un número válido, por ejemplo 4,5."
+        value <= 0 -> "El peso debe ser mayor que cero."
+        else -> null
+    }
 }
 
 @Composable

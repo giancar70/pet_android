@@ -21,6 +21,7 @@ object ApiEndpoints {
     fun petDewormingApplicationDetail(petId: String, applicationId: String) =
         "/pets/$petId/deworming-applications/$applicationId/"
     fun petReminders(petId: String) = "/pets/$petId/reminders/"
+    fun petReminderDetail(petId: String, reminderId: String) = "/pets/$petId/reminders/$reminderId/"
     fun petShare(petId: String) = "/pets/$petId/share/"
     fun petConsultations(petId: String) = "/pets/$petId/consultations/"
     fun petConsultationDetail(petId: String, consultationId: String) = "/pets/$petId/consultations/$consultationId/"

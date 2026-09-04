@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.R
 import com.petapp.android.core.model.Pet
+import com.petapp.android.core.model.Reminder
 import com.petapp.android.features.account.MiCuentaScreen
 import com.petapp.android.features.account.PdfViewerScreen
 import com.petapp.android.features.account.PrivacidadScreen
@@ -45,6 +46,8 @@ import com.petapp.android.features.pets.PetsUiState
 import com.petapp.android.features.pets.PetsViewModel
 import com.petapp.android.features.pets.RegisterPetScreen
 import com.petapp.android.features.reminders.AnadirRecordatorioScreen
+import com.petapp.android.features.reminders.RecordatorioDetailScreen
+import com.petapp.android.features.reminders.RecordatoriosListScreen
 import com.petapp.android.features.sharing.CompartirMascotaScreen
 import com.petapp.android.features.vaccines.RegistrarVacunaScreen
 import com.petapp.android.features.vaccines.VacunaDetailScreen
@@ -95,6 +98,8 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showSubirArchivo by remember { mutableStateOf(false) }
     var showCapturarDocumento by remember { mutableStateOf(false) }
     var showAnadirRecordatorio by remember { mutableStateOf(false) }
+    var showRecordatorios by remember { mutableStateOf(false) }
+    var recordatorioDetail by remember { mutableStateOf<Reminder?>(null) }
     var showCompartirMascota by remember { mutableStateOf(false) }
     var showMiCuenta by remember { mutableStateOf(false) }
     var showAjustes by remember { mutableStateOf(false) }
@@ -104,7 +109,26 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
 
     val currentPetDetail = petDetail
     val currentActivityDetail = activityDetail
+    val currentRecordatorioDetail = recordatorioDetail
     when {
+        currentRecordatorioDetail != null -> {
+            RecordatorioDetailScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                reminderId = currentRecordatorioDetail.id,
+                onBack = { recordatorioDetail = null },
+                onDeleted = { recordatorioDetail = null },
+            )
+            return
+        }
+        showRecordatorios -> {
+            RecordatoriosListScreen(
+                selectedPet = selectedPet,
+                onBack = { showRecordatorios = false },
+                onOpenDetail = { reminder -> recordatorioDetail = reminder },
+            )
+            return
+        }
         currentPetDetail != null -> {
             PetDetailScreen(
                 pet = currentPetDetail,
@@ -241,10 +265,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 userFullName = userFullName,
                 onBack = { showAnadirRecordatorio = false },
                 onFinish = { showAnadirRecordatorio = false },
-                onViewActivity = {
-                    showAnadirRecordatorio = false
-                    currentTab = MainTab.ACTIVIDAD
-                },
             )
             return
         }
@@ -454,6 +474,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 userFullName = userFullName,
                 onSwitchPetClick = { showPetSwitcher = true },
                 onGestionarPetsClick = { showGestionarPets = true },
+                onRecordatoriosClick = { showRecordatorios = true },
                 onMiCuentaClick = { showMiCuenta = true },
                 onAjustesClick = { showAjustes = true },
                 onLogout = {

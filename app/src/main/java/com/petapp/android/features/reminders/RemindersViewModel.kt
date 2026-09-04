@@ -25,12 +25,65 @@ sealed interface RecordatoriosListUiState {
     data class Error(val message: String) : RecordatoriosListUiState
 }
 
+sealed interface RecordatorioDetailUiState {
+    data object Loading : RecordatorioDetailUiState
+    data class Loaded(val reminder: Reminder) : RecordatorioDetailUiState
+    data class Error(val message: String) : RecordatorioDetailUiState
+}
+
+sealed interface DeleteReminderUiState {
+    data object Idle : DeleteReminderUiState
+    data object Loading : DeleteReminderUiState
+    data object Success : DeleteReminderUiState
+    data class Error(val message: String) : DeleteReminderUiState
+}
+
 class RemindersViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateReminderUiState>(CreateReminderUiState.Idle)
     val createState: StateFlow<CreateReminderUiState> = _createState.asStateFlow()
 
     private val _listState = MutableStateFlow<RecordatoriosListUiState>(RecordatoriosListUiState.Loading)
     val listState: StateFlow<RecordatoriosListUiState> = _listState.asStateFlow()
+
+    private val _detailState = MutableStateFlow<RecordatorioDetailUiState>(RecordatorioDetailUiState.Loading)
+    val detailState: StateFlow<RecordatorioDetailUiState> = _detailState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeleteReminderUiState>(DeleteReminderUiState.Idle)
+    val deleteState: StateFlow<DeleteReminderUiState> = _deleteState.asStateFlow()
+
+    fun fetchRecordatorioDetail(petId: String, reminderId: String) {
+        _detailState.value = RecordatorioDetailUiState.Loading
+        viewModelScope.launch {
+            try {
+                val reminder: Reminder = ApiClient.get(ApiEndpoints.petReminderDetail(petId, reminderId))
+                _detailState.value = RecordatorioDetailUiState.Loaded(reminder)
+            } catch (e: ApiError.ServerError) {
+                _detailState.value = RecordatorioDetailUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _detailState.value = RecordatorioDetailUiState.Error(e.message ?: "No se pudo cargar el recordatorio.")
+            }
+        }
+    }
+
+    // Soft-delete: DELETE flips the row's `deleted` flag on the backend rather than
+    // removing it, scoped to this one reminder -- other reminders/pets are untouched.
+    fun deleteRecordatorio(petId: String, reminderId: String) {
+        _deleteState.value = DeleteReminderUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petReminderDetail(petId, reminderId))
+                _deleteState.value = DeleteReminderUiState.Success
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeleteReminderUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeleteReminderUiState.Error(e.message ?: "No se pudo eliminar el recordatorio.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteReminderUiState.Idle
+    }
 
     fun fetchRecordatorios(petId: String) {
         _listState.value = RecordatoriosListUiState.Loading
