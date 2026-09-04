@@ -31,6 +31,13 @@ sealed interface ConsultaDetailUiState {
     data class Error(val message: String) : ConsultaDetailUiState
 }
 
+sealed interface DeleteConsultaUiState {
+    data object Idle : DeleteConsultaUiState
+    data object Loading : DeleteConsultaUiState
+    data object Success : DeleteConsultaUiState
+    data class Error(val message: String) : DeleteConsultaUiState
+}
+
 class ConsultationsViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateConsultaUiState>(CreateConsultaUiState.Idle)
     val createState: StateFlow<CreateConsultaUiState> = _createState.asStateFlow()
@@ -40,6 +47,9 @@ class ConsultationsViewModel : ViewModel() {
 
     private val _detailState = MutableStateFlow<ConsultaDetailUiState>(ConsultaDetailUiState.Loading)
     val detailState: StateFlow<ConsultaDetailUiState> = _detailState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeleteConsultaUiState>(DeleteConsultaUiState.Idle)
+    val deleteState: StateFlow<DeleteConsultaUiState> = _deleteState.asStateFlow()
 
     fun fetchConsultaDetail(petId: String, consultationId: String) {
         _detailState.value = ConsultaDetailUiState.Loading
@@ -105,5 +115,25 @@ class ConsultationsViewModel : ViewModel() {
 
     fun resetCreateState() {
         _createState.value = CreateConsultaUiState.Idle
+    }
+
+    // Soft-delete: DELETE flips the row's `deleted` flag on the backend rather than
+    // removing it, scoped to this one consulta -- other records/pets are untouched.
+    fun deleteConsulta(petId: String, consultationId: String) {
+        _deleteState.value = DeleteConsultaUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petConsultationDetail(petId, consultationId))
+                _deleteState.value = DeleteConsultaUiState.Success
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeleteConsultaUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeleteConsultaUiState.Error(e.message ?: "No se pudo eliminar la consulta.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteConsultaUiState.Idle
     }
 }

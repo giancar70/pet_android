@@ -12,6 +12,7 @@ object ApiEndpoints {
     const val PETS = "/pets/"
 
     fun petDetail(id: String) = "/pets/$id/"
+    fun breeds(species: String) = "/pets/breeds/?species=$species"
     fun petEvents(petId: String) = "/pets/$petId/events/"
     fun petEventDetail(petId: String, eventId: String) = "/pets/$petId/events/$eventId/"
     fun petVaccineDoses(petId: String) = "/pets/$petId/vaccine-doses/"

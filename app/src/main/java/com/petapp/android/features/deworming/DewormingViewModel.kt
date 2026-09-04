@@ -31,6 +31,13 @@ sealed interface DewormingDetailUiState {
     data class Error(val message: String) : DewormingDetailUiState
 }
 
+sealed interface DeleteDewormingUiState {
+    data object Idle : DeleteDewormingUiState
+    data object Loading : DeleteDewormingUiState
+    data object Success : DeleteDewormingUiState
+    data class Error(val message: String) : DeleteDewormingUiState
+}
+
 class DewormingViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateDewormingUiState>(CreateDewormingUiState.Idle)
     val createState: StateFlow<CreateDewormingUiState> = _createState.asStateFlow()
@@ -40,6 +47,9 @@ class DewormingViewModel : ViewModel() {
 
     private val _detailState = MutableStateFlow<DewormingDetailUiState>(DewormingDetailUiState.Loading)
     val detailState: StateFlow<DewormingDetailUiState> = _detailState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeleteDewormingUiState>(DeleteDewormingUiState.Idle)
+    val deleteState: StateFlow<DeleteDewormingUiState> = _deleteState.asStateFlow()
 
     fun fetchDesparasitacionDetail(petId: String, applicationId: String) {
         _detailState.value = DewormingDetailUiState.Loading
@@ -106,5 +116,25 @@ class DewormingViewModel : ViewModel() {
 
     fun resetCreateState() {
         _createState.value = CreateDewormingUiState.Idle
+    }
+
+    // Soft-delete: DELETE flips the row's `deleted` flag on the backend rather than
+    // removing it, scoped to this one application -- other records/pets are untouched.
+    fun deleteDesparasitacion(petId: String, applicationId: String) {
+        _deleteState.value = DeleteDewormingUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petDewormingApplicationDetail(petId, applicationId))
+                _deleteState.value = DeleteDewormingUiState.Success
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeleteDewormingUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeleteDewormingUiState.Error(e.message ?: "No se pudo eliminar la desparasitación.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteDewormingUiState.Idle
     }
 }

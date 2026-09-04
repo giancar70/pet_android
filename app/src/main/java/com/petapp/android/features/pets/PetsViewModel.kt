@@ -2,6 +2,7 @@ package com.petapp.android.features.pets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.petapp.android.core.model.Breed
 import com.petapp.android.core.model.Pet
 import com.petapp.android.core.model.PetSpecies
 import com.petapp.android.core.model.UpdatePetRequest
@@ -34,6 +35,20 @@ sealed interface UpdatePetUiState {
     data class Error(val message: String) : UpdatePetUiState
 }
 
+sealed interface DeletePetUiState {
+    data object Idle : DeletePetUiState
+    data object Loading : DeletePetUiState
+    data object Success : DeletePetUiState
+    data class Error(val message: String) : DeletePetUiState
+}
+
+sealed interface BreedsUiState {
+    data object Idle : BreedsUiState
+    data object Loading : BreedsUiState
+    data class Loaded(val breeds: List<Breed>) : BreedsUiState
+    data class Error(val message: String) : BreedsUiState
+}
+
 class PetsViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<PetsUiState>(PetsUiState.Loading)
     val uiState: StateFlow<PetsUiState> = _uiState.asStateFlow()
@@ -46,6 +61,12 @@ class PetsViewModel : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdatePetUiState>(UpdatePetUiState.Idle)
     val updateState: StateFlow<UpdatePetUiState> = _updateState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeletePetUiState>(DeletePetUiState.Idle)
+    val deleteState: StateFlow<DeletePetUiState> = _deleteState.asStateFlow()
+
+    private val _breedsState = MutableStateFlow<BreedsUiState>(BreedsUiState.Idle)
+    val breedsState: StateFlow<BreedsUiState> = _breedsState.asStateFlow()
 
     init {
         fetchPets()
@@ -120,7 +141,14 @@ class PetsViewModel : ViewModel() {
             try {
                 val pet: Pet = ApiClient.patch(ApiEndpoints.petDetail(petId), request)
                 _updateState.value = UpdatePetUiState.Success(pet)
-                fetchPets(selectPetId = _selectedPetId.value)
+                // Patch the already-loaded list in place with the PATCH response instead
+                // of waiting on a separate fetchPets() round-trip -- screens reading
+                // uiState (GreetingHeader, GestionarPetScreen, ...) reflect the edit the
+                // instant Guardar succeeds rather than a moment later.
+                val current = (_uiState.value as? PetsUiState.Loaded)?.pets
+                if (current != null) {
+                    _uiState.value = PetsUiState.Loaded(current.map { if (it.id == pet.id) pet else it })
+                }
             } catch (e: ApiError.ServerError) {
                 _updateState.value = UpdatePetUiState.Error(e.errorMessage)
             } catch (e: ApiError) {
@@ -133,11 +161,61 @@ class PetsViewModel : ViewModel() {
         _updateState.value = UpdatePetUiState.Idle
     }
 
+    // Soft-delete on the backend (Pet.delete() flips a `deleted` flag rather than
+    // removing the row), scoped to this one pet by id -- other pets and their own
+    // records are untouched.
+    fun deletePet(petId: String) {
+        _deleteState.value = DeletePetUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petDetail(petId))
+                _deleteState.value = DeletePetUiState.Success
+                val remaining = (_uiState.value as? PetsUiState.Loaded)?.pets.orEmpty().filter { it.id != petId }
+                _uiState.value = PetsUiState.Loaded(remaining)
+                if (_selectedPetId.value == petId) {
+                    val newSelectedId = remaining.firstOrNull()?.id
+                    _selectedPetId.value = newSelectedId
+                    PetPreferences.selectedPetId = newSelectedId
+                }
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeletePetUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeletePetUiState.Error(e.message ?: "No se pudo eliminar la mascota.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeletePetUiState.Idle
+    }
+
+    // Backs the "Raza" picker on the pet-edit screen -- a server-side catalog (seeded
+    // from lista_raza.csv) filtered by the pet's current species, rather than free text.
+    fun fetchBreeds(species: String) {
+        _breedsState.value = BreedsUiState.Loading
+        viewModelScope.launch {
+            try {
+                val breeds: List<Breed> = ApiClient.get(ApiEndpoints.breeds(species))
+                _breedsState.value = BreedsUiState.Loaded(breeds)
+            } catch (e: ApiError.ServerError) {
+                _breedsState.value = BreedsUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _breedsState.value = BreedsUiState.Error(e.message ?: "No se pudieron cargar las razas.")
+            }
+        }
+    }
+
+    fun resetBreedsState() {
+        _breedsState.value = BreedsUiState.Idle
+    }
+
     fun clearState() {
         _uiState.value = PetsUiState.Loading
         _selectedPetId.value = null
         PetPreferences.selectedPetId = null
         _createState.value = CreatePetUiState.Idle
         _updateState.value = UpdatePetUiState.Idle
+        _deleteState.value = DeletePetUiState.Idle
+        _breedsState.value = BreedsUiState.Idle
     }
 }

@@ -31,6 +31,13 @@ sealed interface VaccineDoseDetailUiState {
     data class Error(val message: String) : VaccineDoseDetailUiState
 }
 
+sealed interface DeleteVaccineDoseUiState {
+    data object Idle : DeleteVaccineDoseUiState
+    data object Loading : DeleteVaccineDoseUiState
+    data object Success : DeleteVaccineDoseUiState
+    data class Error(val message: String) : DeleteVaccineDoseUiState
+}
+
 class VaccinesViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateVaccineDoseUiState>(CreateVaccineDoseUiState.Idle)
     val createState: StateFlow<CreateVaccineDoseUiState> = _createState.asStateFlow()
@@ -40,6 +47,9 @@ class VaccinesViewModel : ViewModel() {
 
     private val _detailState = MutableStateFlow<VaccineDoseDetailUiState>(VaccineDoseDetailUiState.Loading)
     val detailState: StateFlow<VaccineDoseDetailUiState> = _detailState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeleteVaccineDoseUiState>(DeleteVaccineDoseUiState.Idle)
+    val deleteState: StateFlow<DeleteVaccineDoseUiState> = _deleteState.asStateFlow()
 
     fun fetchVacunaDetail(petId: String, doseId: String) {
         _detailState.value = VaccineDoseDetailUiState.Loading
@@ -75,6 +85,7 @@ class VaccinesViewModel : ViewModel() {
         petId: String,
         vaccineName: String,
         appliedOnIso: String,
+        nextDueOnIso: String?,
         lotNumber: String?,
         notes: String?,
     ) {
@@ -84,6 +95,7 @@ class VaccinesViewModel : ViewModel() {
                 val request = CreateVaccineDoseRequest(
                     vaccineName = vaccineName,
                     appliedOn = appliedOnIso,
+                    nextDueOn = nextDueOnIso,
                     lotNumber = lotNumber?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
                 )
@@ -99,5 +111,25 @@ class VaccinesViewModel : ViewModel() {
 
     fun resetCreateState() {
         _createState.value = CreateVaccineDoseUiState.Idle
+    }
+
+    // Soft-delete: DELETE flips the row's `deleted` flag on the backend rather than
+    // removing it, scoped to this one dose -- other vaccines/pets are untouched.
+    fun deleteVacuna(petId: String, doseId: String) {
+        _deleteState.value = DeleteVaccineDoseUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petVaccineDoseDetail(petId, doseId))
+                _deleteState.value = DeleteVaccineDoseUiState.Success
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeleteVaccineDoseUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeleteVaccineDoseUiState.Error(e.message ?: "No se pudo eliminar la vacuna.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteVaccineDoseUiState.Idle
     }
 }

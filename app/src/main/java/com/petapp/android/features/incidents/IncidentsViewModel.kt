@@ -40,6 +40,13 @@ sealed interface IncidenciaDocumentsUiState {
     data class Error(val message: String) : IncidenciaDocumentsUiState
 }
 
+sealed interface DeleteIncidenciaUiState {
+    data object Idle : DeleteIncidenciaUiState
+    data object Loading : DeleteIncidenciaUiState
+    data object Success : DeleteIncidenciaUiState
+    data class Error(val message: String) : DeleteIncidenciaUiState
+}
+
 class IncidentsViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateEventUiState>(CreateEventUiState.Idle)
     val createState: StateFlow<CreateEventUiState> = _createState.asStateFlow()
@@ -52,6 +59,9 @@ class IncidentsViewModel : ViewModel() {
 
     private val _documentsState = MutableStateFlow<IncidenciaDocumentsUiState>(IncidenciaDocumentsUiState.Loading)
     val documentsState: StateFlow<IncidenciaDocumentsUiState> = _documentsState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeleteIncidenciaUiState>(DeleteIncidenciaUiState.Idle)
+    val deleteState: StateFlow<DeleteIncidenciaUiState> = _deleteState.asStateFlow()
 
     fun fetchIncidenciaDetail(petId: String, eventId: String) {
         _detailState.value = IncidenciaDetailUiState.Loading
@@ -142,5 +152,25 @@ class IncidentsViewModel : ViewModel() {
 
     fun resetCreateState() {
         _createState.value = CreateEventUiState.Idle
+    }
+
+    // Soft-delete: DELETE flips the row's `deleted` flag on the backend rather than
+    // removing it, scoped to this one incidencia -- other records/pets are untouched.
+    fun deleteIncidencia(petId: String, eventId: String) {
+        _deleteState.value = DeleteIncidenciaUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petEventDetail(petId, eventId))
+                _deleteState.value = DeleteIncidenciaUiState.Success
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeleteIncidenciaUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeleteIncidenciaUiState.Error(e.message ?: "No se pudo eliminar la incidencia.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteIncidenciaUiState.Idle
     }
 }

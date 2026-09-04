@@ -31,6 +31,13 @@ data class UpdatePetRequest(
     val notes: String? = null,
 )
 
+@Serializable
+data class Breed(
+    val id: String,
+    val species: String,
+    val name: String,
+)
+
 enum class PetSpecies(val apiValue: String, val label: String) {
     DOG("dog", "Perro"),
     CAT("cat", "Gato"),

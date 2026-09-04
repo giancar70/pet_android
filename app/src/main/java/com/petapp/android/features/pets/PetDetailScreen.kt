@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,11 +23,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NoteAlt
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +37,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -70,6 +75,7 @@ private val SubtitleGray = Color(0xFF666666)
 private val CardBorder = Color(0xFFEFEFF4)
 private val PendingBg = Color(0xFFFBE3D6)
 private val PendingText = Color(0xFFB4552B)
+private val DeleteRed = Color(0xFFC0392B)
 
 private enum class DetailField { NAME, SPECIES, BREED, SEX, WEIGHT, COLOR, MICROCHIP, NOTES }
 
@@ -81,6 +87,8 @@ fun PetDetailScreen(
     viewModel: PetsViewModel = viewModel(),
 ) {
     val updateState by viewModel.updateState.collectAsState()
+    val deleteState by viewModel.deleteState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     var name by remember(pet.id) { mutableStateOf(pet.name) }
     var species by remember(pet.id) { mutableStateOf(pet.species) }
@@ -101,7 +109,10 @@ fun PetDetailScreen(
     // already have latched onto the stale Success), so consumedInitialState instead
     // always ignores the first firing regardless of what it sees, and only acts on a
     // later, genuine Success from this screen's own save.
-    LaunchedEffect(Unit) { viewModel.resetUpdateState() }
+    LaunchedEffect(Unit) {
+        viewModel.resetUpdateState()
+        viewModel.resetDeleteState()
+    }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(updateState) {
         if (!consumedInitialState) {
@@ -109,6 +120,14 @@ fun PetDetailScreen(
             return@LaunchedEffect
         }
         if (updateState is UpdatePetUiState.Success) onBack()
+    }
+    var consumedInitialDeleteState by remember { mutableStateOf(false) }
+    LaunchedEffect(deleteState) {
+        if (!consumedInitialDeleteState) {
+            consumedInitialDeleteState = true
+            return@LaunchedEffect
+        }
+        if (deleteState is DeletePetUiState.Success) onBack()
     }
 
     val displayPet = pet.copy(name = name, species = species, breed = breed.ifBlank { null }, birthDate = birthDateIso)
@@ -242,8 +261,60 @@ fun PetDetailScreen(
                 Text(text = if (isSaving) "Guardando…" else "Guardar", fontWeight = FontWeight.Bold)
             }
 
+            if (deleteState is DeletePetUiState.Error) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = (deleteState as DeletePetUiState.Error).message,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 14.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            val isDeleting = deleteState is DeletePetUiState.Loading
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                enabled = !isDeleting,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = DeleteRed),
+                border = BorderStroke(1.dp, DeleteRed),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(color = DeleteRed, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                } else {
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = DeleteRed, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Eliminar mascota", fontWeight = FontWeight.Bold)
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar mascota") },
+            text = {
+                Text("¿Estás seguro de que deseas eliminar a $name? Esta acción no se puede deshacer y no afecta a tus otras mascotas.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deletePet(pet.id)
+                    },
+                ) { Text("Eliminar", color = DeleteRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar", color = BrandGreen) }
+            },
+        )
     }
 
     when (activeDialog) {
@@ -260,10 +331,11 @@ fun PetDetailScreen(
             onSelect = { species = it },
             onDismiss = { activeDialog = null },
         )
-        DetailField.BREED -> EditTextDialog(
-            title = "Raza",
-            initialValue = breed,
-            onConfirm = { breed = it },
+        DetailField.BREED -> BreedSelectionDialog(
+            species = species,
+            currentBreed = breed,
+            viewModel = viewModel,
+            onSelect = { breed = it },
             onDismiss = { activeDialog = null },
         )
         DetailField.SEX -> SelectionDialog(
@@ -442,6 +514,66 @@ private fun SelectionDialog(
                         RadioButton(selected = value == selected, onClick = { onSelect(value); onDismiss() })
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(label)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        },
+    )
+}
+
+@Composable
+private fun BreedSelectionDialog(
+    species: String,
+    currentBreed: String,
+    viewModel: PetsViewModel,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val breedsState by viewModel.breedsState.collectAsState()
+
+    LaunchedEffect(species) {
+        viewModel.fetchBreeds(species)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Raza") },
+        text = {
+            when (val state = breedsState) {
+                is BreedsUiState.Idle, is BreedsUiState.Loading -> Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = BrandGreen)
+                }
+                is BreedsUiState.Error -> Text(
+                    text = state.message,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 14.sp,
+                )
+                is BreedsUiState.Loaded -> Column(
+                    modifier = Modifier
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    state.breeds.forEach { breed ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(breed.name); onDismiss() }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = breed.name == currentBreed,
+                                onClick = { onSelect(breed.name); onDismiss() },
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(breed.name)
+                        }
                     }
                 }
             }

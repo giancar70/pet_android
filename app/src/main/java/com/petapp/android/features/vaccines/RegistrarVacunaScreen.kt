@@ -114,10 +114,23 @@ private fun VacunaFormContent(
 
     var vacunaAplicada by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(LocalDate.now()) }
+    var nextDueDate by remember { mutableStateOf<LocalDate?>(null) }
     var lote by remember { mutableStateOf("") }
     var observaciones by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+
+    // Recomputed every recomposition (cheap) so it reacts immediately to either date
+    // picker without a separate effect -- próxima vacunación is optional, so there's
+    // nothing to validate while it's unset.
+    val nextDueError = nextDueDate?.let { nextDue ->
+        if (!nextDue.isAfter(date)) {
+            "La próxima vacunación debe ser posterior a la fecha de aplicación."
+        } else {
+            null
+        }
+    }
 
     // VaccinesViewModel is Activity-scoped (no Navigation-Compose back stack), so a
     // prior success can still be sitting in createState when this screen re-enters —
@@ -168,6 +181,30 @@ private fun VacunaFormContent(
             },
         ) {
             DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showNextDueDatePicker) {
+        val nextDueDatePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (nextDueDate ?: date)
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showNextDueDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = nextDueDatePickerState.selectedDateMillis
+                    if (millis != null) {
+                        nextDueDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showNextDueDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNextDueDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = nextDueDatePickerState)
         }
     }
 
@@ -244,6 +281,48 @@ private fun VacunaFormContent(
                         Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = "Próxima vacunación", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 10.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = nextDueDate?.let { spanishDate(it) } ?: "",
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            placeholder = { Text("Selecciona una fecha") },
+                            isError = nextDueError != null,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = CardBorder,
+                                focusedBorderColor = BrandGreen,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showNextDueDatePicker = true },
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(BrandGreen, RoundedCornerShape(12.dp))
+                            .clickable { showNextDueDatePicker = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White)
+                    }
+                }
+                if (nextDueError != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = nextDueError, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -316,13 +395,14 @@ private fun VacunaFormContent(
                                 petId = petId,
                                 vaccineName = vacunaAplicada,
                                 appliedOnIso = date.toString(),
+                                nextDueOnIso = nextDueDate?.toString(),
                                 lotNumber = lote,
                                 notes = observaciones,
                             )
                         }
                     }
                 },
-                enabled = !isLoading,
+                enabled = !isLoading && nextDueError == null,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
                 modifier = Modifier
