@@ -17,3 +17,11 @@ data class Document(
     @SerialName("document_date") val documentDate: String? = null,
     @SerialName("created_at") val createdAt: String,
 )
+
+enum class DocumentTypeOption(val apiValue: String, val label: String) {
+    CLINIC("clinic", "Clínica"),
+    INVOICE("invoice", "Factura"),
+    LABWORK("labwork", "Laboratorio"),
+    PRESCRIPTION("prescription", "Receta"),
+    OTHER("other", "Otros"),
+}

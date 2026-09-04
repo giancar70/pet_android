@@ -206,6 +206,7 @@ fun CompartirMascotaScreen(
                                 val petId = selectedPet?.id
                                 when {
                                     email.isBlank() -> validationError = "Ingresa un correo electrónico."
+                                    !isValidEmail(email.trim()) -> validationError = "Ingresa un correo electrónico válido."
                                     petId == null -> validationError = "Agrega una mascota primero."
                                     else -> {
                                         validationError = null
@@ -233,6 +234,9 @@ fun CompartirMascotaScreen(
         }
     }
 }
+
+private fun isValidEmail(email: String): Boolean =
+    android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
 private fun roleLabel(apiValue: String): String =
     PetShareRole.entries.find { it.apiValue == apiValue }?.label ?: apiValue

@@ -30,6 +30,13 @@ sealed interface DocumentDetailUiState {
     data class Error(val message: String) : DocumentDetailUiState
 }
 
+sealed interface DeleteDocumentUiState {
+    data object Idle : DeleteDocumentUiState
+    data object Loading : DeleteDocumentUiState
+    data object Success : DeleteDocumentUiState
+    data class Error(val message: String) : DeleteDocumentUiState
+}
+
 class FilesViewModel : ViewModel() {
     private val _uploadState = MutableStateFlow<UploadDocumentUiState>(UploadDocumentUiState.Idle)
     val uploadState: StateFlow<UploadDocumentUiState> = _uploadState.asStateFlow()
@@ -39,6 +46,9 @@ class FilesViewModel : ViewModel() {
 
     private val _detailState = MutableStateFlow<DocumentDetailUiState>(DocumentDetailUiState.Loading)
     val detailState: StateFlow<DocumentDetailUiState> = _detailState.asStateFlow()
+
+    private val _deleteState = MutableStateFlow<DeleteDocumentUiState>(DeleteDocumentUiState.Idle)
+    val deleteState: StateFlow<DeleteDocumentUiState> = _deleteState.asStateFlow()
 
     // Tracks which pet's list is currently held in _listState so fetchDocuments can
     // skip a redundant network call when nothing has changed -- see that function.
@@ -82,13 +92,13 @@ class FilesViewModel : ViewModel() {
         }
     }
 
-    fun uploadDocument(petId: String, fileBytes: ByteArray, fileName: String, mimeType: String) {
+    fun uploadDocument(petId: String, fileBytes: ByteArray, fileName: String, mimeType: String, documentType: String) {
         _uploadState.value = UploadDocumentUiState.Loading
         viewModelScope.launch {
             try {
                 val document: Document = ApiClient.postMultipartFile(
                     path = ApiEndpoints.petDocuments(petId),
-                    fields = mapOf("title" to fileName),
+                    fields = mapOf("title" to fileName, "document_type" to documentType),
                     fileBytes = fileBytes,
                     fileName = fileName,
                     mimeType = mimeType,
@@ -108,5 +118,29 @@ class FilesViewModel : ViewModel() {
 
     fun resetUploadState() {
         _uploadState.value = UploadDocumentUiState.Idle
+    }
+
+    // Soft-delete: DELETE flips the row's `deleted` flag on the backend rather than
+    // removing it, scoped to this one document -- other documents/pets are untouched.
+    fun deleteDocument(petId: String, documentId: String) {
+        _deleteState.value = DeleteDocumentUiState.Loading
+        viewModelScope.launch {
+            try {
+                ApiClient.delete(ApiEndpoints.petDocumentDetail(petId, documentId))
+                _deleteState.value = DeleteDocumentUiState.Success
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? DocumentsListUiState.Loaded)?.let {
+                    _listState.value = DocumentsListUiState.Loaded(it.documents.filterNot { doc -> doc.id == documentId })
+                }
+            } catch (e: ApiError.ServerError) {
+                _deleteState.value = DeleteDocumentUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _deleteState.value = DeleteDocumentUiState.Error(e.message ?: "No se pudo eliminar el documento.")
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteDocumentUiState.Idle
     }
 }

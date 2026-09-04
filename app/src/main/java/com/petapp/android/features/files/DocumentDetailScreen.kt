@@ -23,10 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,12 +36,17 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,9 +82,26 @@ fun DocumentDetailScreen(
     viewModel: FilesViewModel = viewModel(),
 ) {
     val detailState by viewModel.detailState.collectAsState()
+    val deleteState by viewModel.deleteState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedPet?.id, documentId) {
         selectedPet?.id?.let { viewModel.fetchDocumentDetail(it, documentId) }
+    }
+
+    // FilesViewModel is Activity-scoped, so a prior deletion's Success can still be
+    // sitting in deleteState when this screen re-enters for a different document;
+    // ignore the first firing regardless of what it holds, and only act on a later,
+    // genuine Success from this screen's own delete (same race-avoidance pattern as
+    // VacunaDetailScreen).
+    LaunchedEffect(Unit) { viewModel.resetDeleteState() }
+    var consumedInitialDeleteState by remember { mutableStateOf(false) }
+    LaunchedEffect(deleteState) {
+        if (!consumedInitialDeleteState) {
+            consumedInitialDeleteState = true
+            return@LaunchedEffect
+        }
+        if (deleteState is DeleteDocumentUiState.Success) onBack()
     }
 
     Column(
@@ -115,8 +139,58 @@ fun DocumentDetailScreen(
                 )
                 is DocumentDetailUiState.Loaded -> DocumentDetailContent(state.document)
             }
+
+            if (deleteState is DeleteDocumentUiState.Error) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = (deleteState as DeleteDocumentUiState.Error).message,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 14.sp,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            val isDeleting = deleteState is DeleteDocumentUiState.Loading
+            OutlinedButton(
+                onClick = { showDeleteDialog = true },
+                enabled = !isDeleting,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = IncidentRed),
+                border = BorderStroke(1.dp, IncidentRed),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(color = IncidentRed, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                } else {
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = IncidentRed, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Eliminar documento", fontWeight = FontWeight.Bold)
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar documento") },
+            text = { Text("¿Estás seguro de que deseas eliminar este documento? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        selectedPet?.id?.let { viewModel.deleteDocument(it, documentId) }
+                    },
+                ) { Text("Eliminar", color = IncidentRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar", color = BrandGreen) }
+            },
+        )
     }
 }
 

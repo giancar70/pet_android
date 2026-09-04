@@ -32,12 +32,14 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petapp.android.core.model.DocumentTypeOption
 import com.petapp.android.core.model.Pet
 import com.petapp.android.features.main.GreetingHeader
 import java.io.File
@@ -362,6 +366,9 @@ private fun ArchivoSeleccionadoStep(
 ) {
     val uploadState by viewModel.uploadState.collectAsState()
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showTypeDialog by remember { mutableStateOf(false) }
+    var documentType by remember { mutableStateOf<DocumentTypeOption?>(null) }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     // FilesViewModel is Activity-scoped (no Navigation-Compose back stack), so a prior
     // successful upload can still be sitting in uploadState when this screen re-enters.
@@ -439,6 +446,13 @@ private fun ArchivoSeleccionadoStep(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    TypeSelectorRow(
+                        icon = Icons.Filled.Category,
+                        title = "Tipo de documento*",
+                        value = documentType?.label ?: "Selecciona un tipo",
+                        onClick = { showTypeDialog = true },
+                    )
+                    HorizontalDivider(color = CardBorder)
                     InfoRow(Icons.AutoMirrored.Filled.InsertDriveFile, "Tipo de archivo", fileTypeLabel(file.mimeType))
                     HorizontalDivider(color = CardBorder)
                     InfoRow(Icons.Filled.CalendarToday, "Fecha de modificación", formatLastModified(file.lastModifiedMillis))
@@ -448,10 +462,10 @@ private fun ArchivoSeleccionadoStep(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            val errorMessage = (uploadState as? UploadDocumentUiState.Error)?.message
-            if (errorMessage != null) {
+            val apiErrorMessage = (uploadState as? UploadDocumentUiState.Error)?.message
+            if (validationError != null || apiErrorMessage != null) {
                 Text(
-                    text = errorMessage,
+                    text = validationError ?: apiErrorMessage!!,
                     color = MaterialTheme.colorScheme.error,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
@@ -461,7 +475,14 @@ private fun ArchivoSeleccionadoStep(
             }
             val isUploading = uploadState is UploadDocumentUiState.Loading
             Button(
-                onClick = { showConfirmDialog = true },
+                onClick = {
+                    if (documentType == null) {
+                        validationError = "Selecciona un tipo de documento."
+                    } else {
+                        validationError = null
+                        showConfirmDialog = true
+                    }
+                },
                 enabled = !isUploading && selectedPet != null,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
@@ -485,21 +506,55 @@ private fun ArchivoSeleccionadoStep(
             onDismissRequest = { showConfirmDialog = false },
             title = { Text("Confirmar archivo y mascota") },
             text = {
-                Text("Se guardará \"${file.name}\" en el historial de $petName. Esta acción no se puede deshacer.")
+                Text("Se guardará \"${file.name}\" (${documentType?.label}) en el historial de $petName. Esta acción no se puede deshacer.")
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showConfirmDialog = false
                         val petId = selectedPet?.id
-                        if (petId != null) {
-                            viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType)
+                        val type = documentType
+                        if (petId != null && type != null) {
+                            viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType, type.apiValue)
                         }
                     },
                 ) { Text("Guardar", color = BrandGreen) }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = false }) { Text("Cancelar") }
+            },
+        )
+    }
+
+    if (showTypeDialog) {
+        AlertDialog(
+            onDismissRequest = { showTypeDialog = false },
+            title = { Text("Tipo de documento") },
+            text = {
+                Column {
+                    DocumentTypeOption.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    documentType = option
+                                    showTypeDialog = false
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = documentType == option, onClick = {
+                                documentType = option
+                                showTypeDialog = false
+                            })
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(option.label, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTypeDialog = false }) { Text("Cerrar") }
             },
         )
     }
@@ -647,6 +702,25 @@ private fun InfoRow(icon: ImageVector, title: String, value: String) {
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(text = value, color = SubtitleGray, fontSize = 13.sp)
         }
+    }
+}
+
+@Composable
+private fun TypeSelectorRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = value, color = SubtitleGray, fontSize = 13.sp)
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
     }
 }
 

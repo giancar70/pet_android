@@ -129,9 +129,6 @@ fun PetActivityContent(
     val documentsState by filesViewModel.listState.collectAsState()
 
     Column(modifier = modifier.padding(horizontal = 24.dp)) {
-        Text(text = "Actividad", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(20.dp))
-
         SectionHeader(icon = Icons.Filled.Vaccines, title = "Vacunas", onVerTodo = onVerVacunas)
         Spacer(modifier = Modifier.height(10.dp))
         VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento)
@@ -164,7 +161,7 @@ fun PetActivityContent(
 
         SectionHeader(icon = Icons.Filled.Description, title = "Documentos", onVerTodo = onVerDocumentos)
         Spacer(modifier = Modifier.height(10.dp))
-        DocumentsSection(documentsState, onCapturarDocumento, onSubirArchivo)
+        DocumentsSection(documentsState, onSubirArchivo)
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -368,7 +365,7 @@ private fun IncidenciaRow(event: PetEvent) {
 }
 
 @Composable
-private fun DocumentsSection(state: DocumentsListUiState, onCapturarDocumento: () -> Unit, onSubirArchivo: () -> Unit) {
+private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> Unit) {
     when (state) {
         is DocumentsListUiState.Loading -> LoadingRow()
         is DocumentsListUiState.Error -> ErrorRow(state.message)
@@ -378,13 +375,12 @@ private fun DocumentsSection(state: DocumentsListUiState, onCapturarDocumento: (
                     icon = Icons.Filled.Description,
                     title = "Aún no hay documentos",
                     description = "Guarda análisis, estudios, cartillas o cualquier documento importante.",
-                    primaryLabel = "Capturar documento",
-                    primarySublabel = "Escanear, subir PDF o foto",
-                    secondaryLabel = "Subir Archivo",
-                    secondarySublabel = "Sube un PDF o imagen",
-                    secondaryIcon = Icons.Filled.CloudUpload,
-                    onPrimaryClick = onCapturarDocumento,
-                    onSecondaryClick = onSubirArchivo,
+                    primaryLabel = "Subir Archivo",
+                    primarySublabel = "Sube un PDF o imagen",
+                    primaryIcon = Icons.Filled.CloudUpload,
+                    secondaryLabel = null,
+                    secondarySublabel = null,
+                    onPrimaryClick = onSubirArchivo,
                 )
             } else {
                 RecordList {
