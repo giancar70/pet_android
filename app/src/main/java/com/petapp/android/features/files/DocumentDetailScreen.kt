@@ -62,10 +62,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.petapp.android.core.model.Document
 import com.petapp.android.core.model.Pet
+import com.petapp.android.core.util.relativeDateLabel
 import com.petapp.android.features.main.GreetingHeader
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -337,14 +335,4 @@ private fun fileTypeLabel(mimeType: String?): String = when {
     else -> mimeType
 }
 
-private fun formatDate(iso: String): String = try {
-    val date = if (iso.length <= 10) {
-        LocalDate.parse(iso)
-    } else {
-        Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate()
-    }
-    val months = listOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
-    "${date.dayOfMonth} ${months[date.monthValue - 1]} ${date.year}"
-} catch (e: Exception) {
-    iso
-}
+private fun formatDate(iso: String): String = relativeDateLabel(iso)

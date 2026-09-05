@@ -65,17 +65,16 @@ import com.petapp.android.features.deworming.DewormingListUiState
 import com.petapp.android.features.deworming.DewormingViewModel
 import com.petapp.android.features.files.DocumentsListUiState
 import com.petapp.android.features.files.FilesViewModel
+import com.petapp.android.core.util.relativeDateLabel
+import com.petapp.android.core.util.relativeDateTimeLabel
 import com.petapp.android.features.incidents.IncidenciasListUiState
 import com.petapp.android.features.incidents.IncidentsViewModel
-import com.petapp.android.features.incidents.spanishDate
 import com.petapp.android.features.reminders.RecordatoriosListUiState
 import com.petapp.android.features.reminders.RemindersViewModel
 import com.petapp.android.features.vaccines.VaccinesListUiState
 import com.petapp.android.features.vaccines.VaccinesViewModel
 import com.petapp.android.ui.theme.PetProjectTheme
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 private val BrandGreen = Color(0xFF406E5F)
@@ -551,18 +550,9 @@ private fun ErrorRow(message: String) {
     Text(text = message, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
 }
 
-private fun formatIsoDate(iso: String): String = try {
-    spanishDate(LocalDate.parse(iso))
-} catch (e: Exception) {
-    iso
-}
+private fun formatIsoDate(iso: String): String = relativeDateLabel(iso)
 
-private fun formatIsoDateTime(iso: String): String = try {
-    val localDate = Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate()
-    spanishDate(localDate)
-} catch (e: Exception) {
-    iso
-}
+private fun formatIsoDateTime(iso: String): String = relativeDateTimeLabel(iso)
 
 @Composable
 private fun SectionHeader(icon: ImageVector, title: String, onVerTodo: (() -> Unit)? = null) {

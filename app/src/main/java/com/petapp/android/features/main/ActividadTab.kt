@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Pet
+import com.petapp.android.core.util.relativeDateLabel
 import com.petapp.android.features.consultations.ConsultasListUiState
 import com.petapp.android.features.consultations.ConsultationsViewModel
 import com.petapp.android.features.deworming.DewormingListUiState
@@ -62,7 +63,6 @@ import com.petapp.android.features.vaccines.VaccinesViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -422,19 +422,5 @@ private fun spanishShortDate(instant: Instant): String {
 
 private fun relativeLabel(instant: Instant): String {
     val date = instant.atZone(ZoneId.systemDefault()).toLocalDate()
-    val today = LocalDate.now()
-    val days = ChronoUnit.DAYS.between(date, today)
-    return when {
-        days <= 0 -> "Hoy"
-        days == 1L -> "Hace 1 día"
-        days < 30 -> "Hace $days días"
-        days < 365 -> {
-            val months = days / 30
-            if (months <= 1) "Hace 1 mes" else "Hace $months meses"
-        }
-        else -> {
-            val years = days / 365
-            if (years <= 1) "Hace 1 año" else "Hace $years años"
-        }
-    }
+    return relativeDateLabel(date)
 }

@@ -47,9 +47,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Consultation
 import com.petapp.android.core.model.Pet
-import com.petapp.android.features.incidents.spanishDate
+import com.petapp.android.core.util.relativeDateLabel
 import com.petapp.android.features.main.GreetingHeader
-import java.time.LocalDate
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -247,8 +246,4 @@ private fun LoadingBox() {
     }
 }
 
-private fun formatIsoDate(iso: String): String = try {
-    spanishDate(LocalDate.parse(iso))
-} catch (e: Exception) {
-    iso
-}
+private fun formatIsoDate(iso: String): String = relativeDateLabel(iso)

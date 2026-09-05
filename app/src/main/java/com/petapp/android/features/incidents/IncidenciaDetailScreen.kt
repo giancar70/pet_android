@@ -57,10 +57,8 @@ import coil.compose.AsyncImage
 import com.petapp.android.core.model.Document
 import com.petapp.android.core.model.Pet
 import com.petapp.android.core.model.PetEvent
+import com.petapp.android.core.util.relativeDateTimeLabel
 import com.petapp.android.features.main.GreetingHeader
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -298,12 +296,4 @@ private fun LoadingBox() {
     }
 }
 
-private fun formatIsoDateTime(iso: String): String = try {
-    val dateTime = Instant.parse(iso).atZone(ZoneId.systemDefault())
-    val months = listOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
-    val datePart = "${dateTime.dayOfMonth} ${months[dateTime.monthValue - 1]} ${dateTime.year}"
-    val timePart = dateTime.format(DateTimeFormatter.ofPattern("HH:mm"))
-    "$datePart, $timePart"
-} catch (e: Exception) {
-    iso
-}
+private fun formatIsoDateTime(iso: String): String = relativeDateTimeLabel(iso)

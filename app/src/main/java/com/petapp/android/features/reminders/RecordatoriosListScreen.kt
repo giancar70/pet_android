@@ -45,8 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Pet
 import com.petapp.android.core.model.Reminder
 import com.petapp.android.core.model.ReminderCategory
-import com.petapp.android.features.incidents.spanishDate
-import java.time.LocalDateTime
+import com.petapp.android.core.util.relativeReminderDateTimeLabel
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -57,16 +56,7 @@ private val IconCircleBg = Color(0xFFD9FEF2)
 internal fun categoryFor(apiValue: String): ReminderCategory? =
     ReminderCategory.entries.firstOrNull { it.apiValue == apiValue }
 
-// due_date is a DateTimeField; this client always sends a naive "yyyy-MM-ddTHH:mm:ss"
-// local string with no zone suffix (see AnadirRecordatorioScreen.kt), but rows created
-// before that migration may come back with a "Z"/offset suffix from the DB cast -- strip
-// anything past the first 19 chars so both shapes parse the same way.
-internal fun formatReminderDate(iso: String): String = try {
-    val dt = LocalDateTime.parse(iso.take(19))
-    "${spanishDate(dt.toLocalDate())} · %02d:%02d".format(dt.hour, dt.minute)
-} catch (e: Exception) {
-    iso
-}
+internal fun formatReminderDate(iso: String): String = relativeReminderDateTimeLabel(iso)
 
 @Composable
 fun RecordatoriosListScreen(
