@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PeopleAlt
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -61,6 +62,7 @@ fun MasTab(
     onSwitchPetClick: () -> Unit,
     onGestionarPetsClick: () -> Unit,
     onRecordatoriosClick: () -> Unit,
+    onInvitacionesClick: () -> Unit,
     onMiCuentaClick: () -> Unit,
     onAjustesClick: () -> Unit,
     onLogout: () -> Unit,
@@ -120,6 +122,13 @@ fun MasTab(
                 title = "Recordatorios",
                 subtitle = "Revisa y gestiona tus recordatorios",
                 onClick = onRecordatoriosClick,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            MasRow(
+                icon = Icons.Filled.PeopleAlt,
+                title = "Invitaciones",
+                subtitle = "Gestiona quién tiene acceso a tus mascotas",
+                onClick = onInvitacionesClick,
             )
             Spacer(modifier = Modifier.height(12.dp))
             MasRow(
@@ -214,6 +223,7 @@ private fun MasTabPreview() {
             onSwitchPetClick = {},
             onGestionarPetsClick = {},
             onRecordatoriosClick = {},
+            onInvitacionesClick = {},
             onMiCuentaClick = {},
             onAjustesClick = {},
             onLogout = {}

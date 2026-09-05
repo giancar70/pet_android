@@ -156,7 +156,12 @@ fun CompartirMascotaScreen(
                             Text(text = "Finalizar", fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        Text(text = "Compartir Mascota", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF333333))
+                        Text(
+                            text = "Compartir Mascota" + (selectedPet?.name?.let { " · $it" } ?: ""),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = Color(0xFF333333),
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         OutlinedTextField(
                             value = email,
@@ -238,7 +243,8 @@ fun CompartirMascotaScreen(
 private fun isValidEmail(email: String): Boolean =
     android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
-private fun roleLabel(apiValue: String): String =
+// Not file-private -- reused by InvitacionesListScreen.kt.
+fun roleLabel(apiValue: String): String =
     PetShareRole.entries.find { it.apiValue == apiValue }?.label ?: apiValue
 
 @Composable
@@ -290,7 +296,12 @@ private fun PersonaConAccesoRow(share: PetShare) {
             Column(modifier = Modifier.weight(1f)) {
                 val name = share.userFullName.ifBlank { share.userEmail }
                 Text(text = name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(text = share.userEmail, color = SubtitleGray, fontSize = 12.sp)
+                if (share.userFullName.isNotBlank()) {
+                    Text(text = share.userEmail, color = SubtitleGray, fontSize = 12.sp)
+                }
+                if (share.status == "pending") {
+                    Text(text = "Pendiente", color = Color(0xFFB4552B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
             Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFD9FEF2)) {
                 Text(

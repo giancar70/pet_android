@@ -23,6 +23,8 @@ object ApiEndpoints {
     fun petReminders(petId: String) = "/pets/$petId/reminders/"
     fun petReminderDetail(petId: String, reminderId: String) = "/pets/$petId/reminders/$reminderId/"
     fun petShare(petId: String) = "/pets/$petId/share/"
+    const val PET_SHARES_ALL = "/pets/shares/"
+    fun petShareDetail(shareId: String) = "/pets/shares/$shareId/"
     fun petConsultations(petId: String) = "/pets/$petId/consultations/"
     fun petConsultationDetail(petId: String, consultationId: String) = "/pets/$petId/consultations/$consultationId/"
     fun petDocuments(petId: String) = "/pets/$petId/documents/"

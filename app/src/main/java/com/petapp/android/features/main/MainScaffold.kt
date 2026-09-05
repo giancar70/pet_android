@@ -49,6 +49,7 @@ import com.petapp.android.features.reminders.AnadirRecordatorioScreen
 import com.petapp.android.features.reminders.RecordatorioDetailScreen
 import com.petapp.android.features.reminders.RecordatoriosListScreen
 import com.petapp.android.features.sharing.CompartirMascotaScreen
+import com.petapp.android.features.sharing.InvitacionesListScreen
 import com.petapp.android.features.vaccines.RegistrarVacunaScreen
 import com.petapp.android.features.vaccines.VacunaDetailScreen
 import kotlinx.coroutines.launch
@@ -100,6 +101,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showAnadirRecordatorio by remember { mutableStateOf(false) }
     var showRecordatorios by remember { mutableStateOf(false) }
     var recordatorioDetail by remember { mutableStateOf<Reminder?>(null) }
+    var showInvitaciones by remember { mutableStateOf(false) }
     var showCompartirMascota by remember { mutableStateOf(false) }
     var showMiCuenta by remember { mutableStateOf(false) }
     var showAjustes by remember { mutableStateOf(false) }
@@ -127,6 +129,10 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onBack = { showRecordatorios = false },
                 onOpenDetail = { reminder -> recordatorioDetail = reminder },
             )
+            return
+        }
+        showInvitaciones -> {
+            InvitacionesListScreen(onBack = { showInvitaciones = false })
             return
         }
         currentPetDetail != null -> {
@@ -475,6 +481,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onSwitchPetClick = { showPetSwitcher = true },
                 onGestionarPetsClick = { showGestionarPets = true },
                 onRecordatoriosClick = { showRecordatorios = true },
+                onInvitacionesClick = { showInvitaciones = true },
                 onMiCuentaClick = { showMiCuenta = true },
                 onAjustesClick = { showAjustes = true },
                 onLogout = {

@@ -10,8 +10,21 @@ data class CreatePetShareRequest(
 )
 
 @Serializable
+data class UpdatePetShareRequest(
+    val role: String,
+)
+
+@Serializable
 data class PetShare(
     val id: String,
+    // "access" (an existing account, already has real permissions) or
+    // "invitation" (an email with no account yet -- see PetInvitation server-side).
+    val kind: String,
+    // "accepted" or "pending" -- same split as `kind`, kept as its own field since
+    // it's what the UI actually renders (a status badge), not a data-shape hint.
+    val status: String,
+    val pet: String,
+    @SerialName("pet_name") val petName: String,
     val role: String,
     @SerialName("can_view") val canView: Boolean,
     @SerialName("can_edit") val canEdit: Boolean,
