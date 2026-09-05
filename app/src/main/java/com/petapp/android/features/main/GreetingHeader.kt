@@ -1,6 +1,8 @@
 package com.petapp.android.features.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,7 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -20,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,6 +46,7 @@ fun GreetingHeader(
     hasPets: Boolean,
     onSwitchPetClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onEditPhotoClick: (() -> Unit)? = null,
 ) {
     val locale = Locale("es", "ES")
     val today = remember { LocalDate.now() }
@@ -108,7 +114,27 @@ fun GreetingHeader(
                 }
             }
         }
-        PetAvatar(pet = if (hasPets) selectedPet else null, showStatusDot = hasPets)
+        Box {
+            PetAvatar(pet = if (hasPets) selectedPet else null, showStatusDot = hasPets)
+            if (onEditPhotoClick != null) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .align(Alignment.TopEnd)
+                        .clip(CircleShape)
+                        .background(BrandGreen)
+                        .clickable(onClick = onEditPhotoClick),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Edit,
+                        contentDescription = "Editar foto",
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp),
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -16,6 +16,7 @@ data class Pet(
     val color: String? = null,
     val microchip: String? = null,
     val notes: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 )
 
 @Serializable

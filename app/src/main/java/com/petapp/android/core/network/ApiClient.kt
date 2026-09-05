@@ -73,6 +73,25 @@ object ApiClient {
         return execute(newRequest(path).post(bodyBuilder.build()).build())
     }
 
+    suspend inline fun <reified T> patchMultipart(
+        path: String,
+        fields: Map<String, String>,
+        imageBytes: ByteArray,
+        imageMimeType: String = "image/jpeg",
+        imageFieldName: String = "image",
+    ): T {
+        val bodyBuilder = MultipartBody.Builder().setType(MultipartBody.FORM)
+        for ((key, value) in fields) {
+            bodyBuilder.addFormDataPart(key, value)
+        }
+        bodyBuilder.addFormDataPart(
+            imageFieldName,
+            "pet.jpg",
+            imageBytes.toRequestBody(imageMimeType.toMediaType()),
+        )
+        return execute(newRequest(path).patch(bodyBuilder.build()).build())
+    }
+
     suspend inline fun <reified T> postMultipartFile(
         path: String,
         fields: Map<String, String>,

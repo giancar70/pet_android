@@ -35,6 +35,13 @@ sealed interface UpdatePetUiState {
     data class Error(val message: String) : UpdatePetUiState
 }
 
+sealed interface UpdatePetImageUiState {
+    data object Idle : UpdatePetImageUiState
+    data object Loading : UpdatePetImageUiState
+    data class Success(val pet: Pet) : UpdatePetImageUiState
+    data class Error(val message: String) : UpdatePetImageUiState
+}
+
 sealed interface DeletePetUiState {
     data object Idle : DeletePetUiState
     data object Loading : DeletePetUiState
@@ -61,6 +68,9 @@ class PetsViewModel : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdatePetUiState>(UpdatePetUiState.Idle)
     val updateState: StateFlow<UpdatePetUiState> = _updateState.asStateFlow()
+
+    private val _updatePetImageState = MutableStateFlow<UpdatePetImageUiState>(UpdatePetImageUiState.Idle)
+    val updatePetImageState: StateFlow<UpdatePetImageUiState> = _updatePetImageState.asStateFlow()
 
     private val _deleteState = MutableStateFlow<DeletePetUiState>(DeletePetUiState.Idle)
     val deleteState: StateFlow<DeletePetUiState> = _deleteState.asStateFlow()
@@ -161,6 +171,28 @@ class PetsViewModel : ViewModel() {
         _updateState.value = UpdatePetUiState.Idle
     }
 
+    fun updatePetImage(petId: String, imageBytes: ByteArray) {
+        _updatePetImageState.value = UpdatePetImageUiState.Loading
+        viewModelScope.launch {
+            try {
+                val pet: Pet = ApiClient.patchMultipart(ApiEndpoints.petDetail(petId), emptyMap(), imageBytes)
+                _updatePetImageState.value = UpdatePetImageUiState.Success(pet)
+                val current = (_uiState.value as? PetsUiState.Loaded)?.pets
+                if (current != null) {
+                    _uiState.value = PetsUiState.Loaded(current.map { if (it.id == pet.id) pet else it })
+                }
+            } catch (e: ApiError.ServerError) {
+                _updatePetImageState.value = UpdatePetImageUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _updatePetImageState.value = UpdatePetImageUiState.Error(e.message ?: "Algo salió mal.")
+            }
+        }
+    }
+
+    fun resetUpdatePetImageState() {
+        _updatePetImageState.value = UpdatePetImageUiState.Idle
+    }
+
     // Soft-delete on the backend (Pet.delete() flips a `deleted` flag rather than
     // removing the row), scoped to this one pet by id -- other pets and their own
     // records are untouched.
@@ -215,6 +247,7 @@ class PetsViewModel : ViewModel() {
         PetPreferences.selectedPetId = null
         _createState.value = CreatePetUiState.Idle
         _updateState.value = UpdatePetUiState.Idle
+        _updatePetImageState.value = UpdatePetImageUiState.Idle
         _deleteState.value = DeletePetUiState.Idle
         _breedsState.value = BreedsUiState.Idle
     }

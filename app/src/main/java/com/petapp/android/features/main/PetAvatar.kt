@@ -35,7 +35,10 @@ fun PetAvatar(
                 .background(AvatarBackground),
             contentAlignment = Alignment.Center,
         ) {
-            val imageUrl = pet?.image
+            // Cache-busted with updatedAt: the stored file is now named after the pet's own
+            // id (see backend's pet_image_upload_to), so re-uploading a new photo keeps the
+            // exact same URL -- without this, Coil would keep serving the old cached bitmap.
+            val imageUrl = pet?.image?.let { url -> pet.updatedAt?.let { "$url?v=$it" } ?: url }
             if (imageUrl != null) {
                 AsyncImage(
                     model = imageUrl,

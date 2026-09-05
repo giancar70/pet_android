@@ -1,6 +1,8 @@
 package com.petapp.android.features.pets
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -85,8 +88,34 @@ fun PetDetailScreen(
     viewModel: PetsViewModel = viewModel(),
 ) {
     val updateState by viewModel.updateState.collectAsState()
+    val updatePetImageState by viewModel.updatePetImageState.collectAsState()
     val deleteState by viewModel.deleteState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var imageOverride by remember(pet.id) { mutableStateOf<Pair<String?, String?>?>(null) }
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri ->
+        if (uri != null) {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes != null) viewModel.updatePetImage(pet.id, bytes)
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.resetUpdatePetImageState()
+    }
+    var consumedInitialImageState by remember { mutableStateOf(false) }
+    LaunchedEffect(updatePetImageState) {
+        if (!consumedInitialImageState) {
+            consumedInitialImageState = true
+            return@LaunchedEffect
+        }
+        val state = updatePetImageState
+        if (state is UpdatePetImageUiState.Success) {
+            imageOverride = state.pet.image to state.pet.updatedAt
+        }
+    }
 
     var name by remember(pet.id) { mutableStateOf(pet.name) }
     var species by remember(pet.id) { mutableStateOf(pet.species) }
@@ -128,7 +157,14 @@ fun PetDetailScreen(
         if (deleteState is DeletePetUiState.Success) onBack()
     }
 
-    val displayPet = pet.copy(name = name, species = species, breed = breed.ifBlank { null }, birthDate = birthDateIso)
+    val displayPet = pet.copy(
+        name = name,
+        species = species,
+        breed = breed.ifBlank { null },
+        birthDate = birthDateIso,
+        image = imageOverride?.first ?: pet.image,
+        updatedAt = imageOverride?.second ?: pet.updatedAt,
+    )
 
     Column(
         modifier = Modifier
@@ -145,7 +181,30 @@ fun PetDetailScreen(
             userFullName = null,
             hasPets = true,
             onSwitchPetClick = onBack,
+            onEditPhotoClick = if (updatePetImageState !is UpdatePetImageUiState.Loading) {
+                { imagePicker.launch("image/*") }
+            } else {
+                null
+            },
         )
+        if (updatePetImageState is UpdatePetImageUiState.Loading) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(color = BrandGreen, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Actualizando foto…", color = SubtitleGray, fontSize = 12.sp)
+            }
+        }
+        if (updatePetImageState is UpdatePetImageUiState.Error) {
+            Text(
+                text = (updatePetImageState as UpdatePetImageUiState.Error).message,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            )
+        }
 
         Column(
             modifier = Modifier
