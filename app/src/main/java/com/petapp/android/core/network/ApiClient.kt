@@ -52,6 +52,15 @@ object ApiClient {
         return execute(newRequest(path).patch(requestBody).build())
     }
 
+    /// For a POST that sends a JSON body but returns 204/no body (e.g. password-reset
+    /// request) -- checks the status code only, unlike [post] which always decodes a
+    /// response body.
+    suspend inline fun <reified TRequest> postForStatus(path: String, body: TRequest) {
+        val requestBody = json.encodeToString(body).toRequestBody(jsonMediaType)
+        val (code, bodyStr) = withContext(Dispatchers.IO) { runRequest(newRequest(path).post(requestBody).build()) }
+        if (code !in 200..299) throw serverErrorFor(code, bodyStr)
+    }
+
     suspend inline fun <reified T> postMultipart(
         path: String,
         fields: Map<String, String>,

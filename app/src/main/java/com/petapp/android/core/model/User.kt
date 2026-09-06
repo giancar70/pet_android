@@ -51,3 +51,15 @@ data class RegisterRequest(
     val email: String,
     val password: String,
 )
+
+@Serializable
+data class PasswordResetRequestRequest(
+    val email: String,
+)
+
+@Serializable
+data class PasswordResetConfirmRequest(
+    val email: String,
+    val code: String,
+    @SerialName("new_password") val newPassword: String,
+)

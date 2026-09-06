@@ -9,6 +9,8 @@ object ApiEndpoints {
     const val LOGIN = "/auth/login/"
     const val LOGOUT = "/auth/logout/"
     const val USER = "/auth/user/"
+    const val PASSWORD_RESET_REQUEST = "/auth/password-reset/request/"
+    const val PASSWORD_RESET_CONFIRM = "/auth/password-reset/confirm/"
     const val PETS = "/pets/"
 
     fun petDetail(id: String) = "/pets/$id/"

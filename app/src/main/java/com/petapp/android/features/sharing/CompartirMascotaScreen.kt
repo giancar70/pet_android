@@ -193,6 +193,12 @@ fun CompartirMascotaScreen(
                                 Text(text = option.label, fontSize = 15.sp, color = Color(0xFF333333))
                             }
                         }
+                        Text(
+                            text = role.description,
+                            color = SubtitleGray,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 40.dp, top = 2.dp, bottom = 6.dp),
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                         val apiErrorMessage = (shareState as? SharePetUiState.Error)?.message
                         if (validationError != null || apiErrorMessage != null) {

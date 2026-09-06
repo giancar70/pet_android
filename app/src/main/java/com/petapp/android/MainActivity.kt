@@ -12,8 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.petapp.android.core.storage.OnboardingState
 import com.petapp.android.core.storage.TokenStore
+import com.petapp.android.features.auth.ForgotPasswordScreen
 import com.petapp.android.features.auth.LoginScreen
 import com.petapp.android.features.auth.RegisterScreen
+import com.petapp.android.features.auth.ResetPasswordScreen
 import com.petapp.android.features.main.MainScaffold
 import com.petapp.android.features.onboarding.OnboardingScreen
 import com.petapp.android.features.pets.PetsGateScreen
@@ -26,6 +28,8 @@ sealed interface AppScreen {
     data object Onboarding : AppScreen
     data object Login : AppScreen
     data object Register : AppScreen
+    data object ForgotPassword : AppScreen
+    data class ResetPassword(val email: String) : AppScreen
     data object CheckingPets : AppScreen
     data object RegisterPet : AppScreen
     data object Main : AppScreen
@@ -64,6 +68,7 @@ class MainActivity : ComponentActivity() {
                             LoginScreen(
                                 onLoginSuccess = { screen = AppScreen.CheckingPets },
                                 onNavigateToRegister = { screen = AppScreen.Register },
+                                onNavigateToForgotPassword = { screen = AppScreen.ForgotPassword },
                             )
                         }
                         AppScreen.Register -> {
@@ -71,6 +76,19 @@ class MainActivity : ComponentActivity() {
                             RegisterScreen(
                                 onRegisterSuccess = { screen = AppScreen.CheckingPets },
                                 onNavigateToLogin = { screen = AppScreen.Login },
+                            )
+                        }
+                        AppScreen.ForgotPassword -> {
+                            ForgotPasswordScreen(
+                                onBack = { screen = AppScreen.Login },
+                                onCodeSent = { email -> screen = AppScreen.ResetPassword(email) },
+                            )
+                        }
+                        is AppScreen.ResetPassword -> {
+                            ResetPasswordScreen(
+                                email = current.email,
+                                onBack = { screen = AppScreen.ForgotPassword },
+                                onResetSuccess = { screen = AppScreen.CheckingPets },
                             )
                         }
                         AppScreen.CheckingPets -> PetsGateScreen(

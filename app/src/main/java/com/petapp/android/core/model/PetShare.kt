@@ -34,8 +34,8 @@ data class PetShare(
     @SerialName("created_at") val createdAt: String,
 )
 
-enum class PetShareRole(val apiValue: String, val label: String) {
-    FAMILY("family", "Colaborador"),
-    CAREGIVER("caregiver", "Solo lectura"),
-    VETERINARY("veterinary", "Veterinario"),
+enum class PetShareRole(val apiValue: String, val label: String, val description: String) {
+    FAMILY("family", "Colaborador", "Puede consultar y añadir información."),
+    CAREGIVER("caregiver", "Solo lectura", "Puede consultar la información, pero no modificarla."),
+    VETERINARY("veterinary", "Veterinario", "Puede consultar y añadir información clínica."),
 }
