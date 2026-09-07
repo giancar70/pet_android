@@ -42,6 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -385,7 +386,12 @@ fun PetDetailScreen(
             title = "Especie",
             options = PetSpecies.entries.map { it.apiValue to it.label.replaceFirstChar(Char::uppercase) },
             selected = species,
-            onSelect = { species = it },
+            onSelect = { newSpecies ->
+                // Breed options are species-specific, so a stale breed from the previous
+                // species can't remain selected once the species changes.
+                if (newSpecies != species) breed = ""
+                species = newSpecies
+            },
             onDismiss = { activeDialog = null },
         )
         DetailField.BREED -> BreedSelectionDialog(
@@ -435,7 +441,12 @@ fun PetDetailScreen(
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState()
+        val datePickerState = rememberDatePickerState(
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcTimeMillis <= System.currentTimeMillis()
+            },
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
