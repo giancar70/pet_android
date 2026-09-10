@@ -91,23 +91,34 @@ class PetsViewModel : ViewModel() {
         if (_uiState.value !is PetsUiState.Loaded) {
             _uiState.value = PetsUiState.Loading
         }
-        viewModelScope.launch {
-            try {
-                val pets: List<Pet> = ApiClient.get(ApiEndpoints.PETS)
-                _uiState.value = PetsUiState.Loaded(pets)
-                val stillExists = pets.any { it.id == _selectedPetId.value }
-                val newSelectedId = when {
-                    selectPetId != null -> selectPetId
-                    stillExists -> _selectedPetId.value
-                    else -> pets.firstOrNull()?.id
-                }
-                _selectedPetId.value = newSelectedId
-                PetPreferences.selectedPetId = newSelectedId
-            } catch (e: ApiError.ServerError) {
-                _uiState.value = PetsUiState.Error(e.errorMessage)
-            } catch (e: ApiError) {
-                _uiState.value = PetsUiState.Error(e.message ?: "No se pudo cargar tus mascotas.")
+        viewModelScope.launch { fetchPetsInternal(selectPetId) }
+    }
+
+    // Suspending variant of fetchPets(), for callers that need to know the result before
+    // deciding what to show next (e.g. MainActivity's cold-start routing, which resolves
+    // the pets list while the system splash is still held on screen, so there's no
+    // separate "checking pets" view flashing in between).
+    suspend fun fetchPetsAndAwait(selectPetId: String? = null): List<Pet>? = fetchPetsInternal(selectPetId)
+
+    private suspend fun fetchPetsInternal(selectPetId: String?): List<Pet>? {
+        return try {
+            val pets: List<Pet> = ApiClient.get(ApiEndpoints.PETS)
+            _uiState.value = PetsUiState.Loaded(pets)
+            val stillExists = pets.any { it.id == _selectedPetId.value }
+            val newSelectedId = when {
+                selectPetId != null -> selectPetId
+                stillExists -> _selectedPetId.value
+                else -> pets.firstOrNull()?.id
             }
+            _selectedPetId.value = newSelectedId
+            PetPreferences.selectedPetId = newSelectedId
+            pets
+        } catch (e: ApiError.ServerError) {
+            _uiState.value = PetsUiState.Error(e.errorMessage)
+            null
+        } catch (e: ApiError) {
+            _uiState.value = PetsUiState.Error(e.message ?: "No se pudo cargar tus mascotas.")
+            null
         }
     }
 

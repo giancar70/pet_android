@@ -12,6 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petapp.android.core.model.User
+import com.petapp.android.core.network.ApiClient
+import com.petapp.android.core.network.ApiEndpoints
 import com.petapp.android.core.storage.OnboardingState
 import com.petapp.android.core.storage.TokenStore
 import com.petapp.android.features.auth.ForgotPasswordScreen
@@ -21,6 +25,7 @@ import com.petapp.android.features.auth.ResetPasswordScreen
 import com.petapp.android.features.main.MainScaffold
 import com.petapp.android.features.onboarding.OnboardingScreen
 import com.petapp.android.features.pets.PetsGateScreen
+import com.petapp.android.features.pets.PetsViewModel
 import com.petapp.android.features.pets.RegisterPetScreen
 import com.petapp.android.ui.theme.PetProjectTheme
 import kotlinx.coroutines.delay
@@ -48,16 +53,28 @@ class MainActivity : ComponentActivity() {
         setContent {
             PetProjectTheme {
                 var screen by remember { mutableStateOf<AppScreen?>(null) }
+                val petsViewModel: PetsViewModel = viewModel()
                 LaunchedEffect(Unit) {
                     delay(1500)
                     // Mirrors the app's 3 possible post-splash states: (A) first launch
                     // ever -> Onboarding; (B) onboarding already seen but logged out ->
                     // straight to Login, skipping Onboarding; (C) a saved token exists ->
-                    // the existing pets-check -> Main flow.
-                    screen = when {
-                        TokenStore.token != null -> AppScreen.CheckingPets
-                        OnboardingState.hasCompleted -> AppScreen.Login
-                        else -> AppScreen.Onboarding
+                    // resolve pets right here, still hidden behind the splash, instead of
+                    // handing off to CheckingPets' own visible loading screen -- otherwise
+                    // cold start reads as two separate views (splash, then a second screen
+                    // with its own logo + spinner) rather than one continuous screen.
+                    screen = if (TokenStore.token != null) {
+                        val lastSelectedPet = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
+                        val pets = petsViewModel.fetchPetsAndAwait(selectPetId = lastSelectedPet)
+                        when {
+                            pets == null -> AppScreen.Login
+                            pets.isEmpty() -> AppScreen.RegisterPet
+                            else -> AppScreen.Main
+                        }
+                    } else if (OnboardingState.hasCompleted) {
+                        AppScreen.Login
+                    } else {
+                        AppScreen.Onboarding
                     }
                     keepSplashOnScreen = false
                 }
