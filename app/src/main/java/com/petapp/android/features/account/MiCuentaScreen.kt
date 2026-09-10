@@ -68,7 +68,7 @@ import com.petapp.android.ui.theme.PetProjectTheme
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
-private val ContentBackground = Color(0xFFE3FBF1)
+private val ContentBackground = Color.White
 private val CardBorder = Color(0xFFEFEFF4)
 private val AvatarBg = Color(0xFFD9FEF2)
 

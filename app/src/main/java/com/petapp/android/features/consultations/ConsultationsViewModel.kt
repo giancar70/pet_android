@@ -102,6 +102,7 @@ class ConsultationsViewModel : ViewModel() {
         diagnostico: String?,
         tratamiento: String?,
         clinicaVeterinario: String?,
+        pesoKg: String? = null,
     ) {
         _createState.value = CreateConsultaUiState.Loading
         viewModelScope.launch {
@@ -114,6 +115,7 @@ class ConsultationsViewModel : ViewModel() {
                     diagnosis = diagnostico?.takeIf { it.isNotBlank() },
                     treatment = tratamiento?.takeIf { it.isNotBlank() },
                     clinicName = clinicaVeterinario?.takeIf { it.isNotBlank() },
+                    weightKg = pesoKg?.takeIf { it.isNotBlank() },
                 )
                 val consultation: Consultation = ApiClient.post(ApiEndpoints.petConsultations(petId), request)
                 _createState.value = CreateConsultaUiState.Success(consultation)

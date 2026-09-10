@@ -36,8 +36,6 @@ import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.PeopleAlt
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
@@ -248,10 +246,10 @@ private fun RecordatorioFormContent(
             Spacer(modifier = Modifier.height(10.dp))
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(3),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.height(190.dp),
+                modifier = Modifier.height(164.dp),
             ) {
                 items(ReminderCategory.entries) { option ->
                     CategoryTile(
@@ -315,11 +313,6 @@ private fun RecordatorioFormContent(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            RecordatorioRow(icon = Icons.Filled.NotificationsActive, title = "Aviso previo", subtitle = "Próximamente disponible", onClick = null)
-            Spacer(modifier = Modifier.height(10.dp))
-            RecordatorioRow(icon = Icons.Filled.PeopleAlt, title = "Añadir personas", subtitle = "Comparte este recordatorio · Próximamente", onClick = null)
-
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateReminderUiState.Error)?.message
             if (validationError != null || apiErrorMessage != null) {
@@ -389,11 +382,13 @@ private fun frequencySubtitle(frequency: ReminderFrequency, customDays: String):
 private fun CategoryTile(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
     Column(
         modifier = Modifier
+            .height(76.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) BrandGreen else BrandGreen.copy(alpha = 0.55f))
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.height(4.dp))

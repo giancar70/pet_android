@@ -232,6 +232,8 @@ fun RegisterPetScreen(
                     Image(
                         bitmap = imagePreview!!,
                         contentDescription = null,
+                        // Crop -- fills the whole circle edge-to-edge, matching how
+                        // PetAvatar displays it everywhere else afterward.
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()

@@ -22,10 +22,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,7 +56,7 @@ import com.petapp.android.core.model.PetShareRole
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
-private val ContentBackground = Color(0xFFE3FBF1)
+private val ContentBackground = Color.White
 private val CardBorder = Color(0xFFEFEFF4)
 private val PendingText = Color(0xFFB4552B)
 private val DeleteRed = Color(0xFFC0392B)
@@ -61,6 +64,7 @@ private val DeleteRed = Color(0xFFC0392B)
 @Composable
 fun InvitacionesListScreen(
     onBack: () -> Unit,
+    onCompartirMascota: () -> Unit,
     viewModel: SharingViewModel = viewModel(),
 ) {
     val listState by viewModel.allSharesState.collectAsState()
@@ -107,6 +111,19 @@ fun InvitacionesListScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = onCompartirMascota,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Compartir mascota", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(24.dp))
 
             when (val state = listState) {
                 is SharesListUiState.Loading -> Box(modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
@@ -236,6 +253,7 @@ fun InvitacionesListScreen(
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
+                        activeShare = null
                         viewModel.deleteShare(current.id)
                     },
                 ) { Text("Eliminar", color = DeleteRed) }

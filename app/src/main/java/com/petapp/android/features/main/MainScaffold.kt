@@ -123,16 +123,38 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             )
             return
         }
+        showAnadirRecordatorio -> {
+            AnadirRecordatorioScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showAnadirRecordatorio = false },
+                onFinish = { showAnadirRecordatorio = false },
+            )
+            return
+        }
         showRecordatorios -> {
             RecordatoriosListScreen(
                 selectedPet = selectedPet,
                 onBack = { showRecordatorios = false },
                 onOpenDetail = { reminder -> recordatorioDetail = reminder },
+                onAnadirRecordatorio = { showAnadirRecordatorio = true },
+            )
+            return
+        }
+        showCompartirMascota -> {
+            CompartirMascotaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showCompartirMascota = false },
+                onFinish = { showCompartirMascota = false },
             )
             return
         }
         showInvitaciones -> {
-            InvitacionesListScreen(onBack = { showInvitaciones = false })
+            InvitacionesListScreen(
+                onBack = { showInvitaciones = false },
+                onCompartirMascota = { showCompartirMascota = true },
+            )
             return
         }
         currentPetDetail != null -> {
@@ -262,24 +284,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     pendingActivityFilter = ActivityCategory.DOCUMENT
                     currentTab = MainTab.ACTIVIDAD
                 },
-            )
-            return
-        }
-        showAnadirRecordatorio -> {
-            AnadirRecordatorioScreen(
-                selectedPet = selectedPet,
-                userFullName = userFullName,
-                onBack = { showAnadirRecordatorio = false },
-                onFinish = { showAnadirRecordatorio = false },
-            )
-            return
-        }
-        showCompartirMascota -> {
-            CompartirMascotaScreen(
-                selectedPet = selectedPet,
-                userFullName = userFullName,
-                onBack = { showCompartirMascota = false },
-                onFinish = { showCompartirMascota = false },
             )
             return
         }
@@ -419,7 +423,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     selected = currentTab == MainTab.MAS,
                     onClick = { currentTab = MainTab.MAS },
                     icon = { Icon(Icons.Filled.MoreHoriz, contentDescription = null) },
-                    label = { Text("Más") },
+                    label = { Text("Perfil") },
                     colors = mainNavColors(),
                 )
             }
@@ -461,6 +465,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     pendingActivityFilter = ActivityCategory.DOCUMENT
                     currentTab = MainTab.ACTIVIDAD
                 },
+                onItemClick = { category, id -> activityDetail = category to id },
                 modifier = contentModifier,
             )
             MainTab.ACTIVIDAD -> ActividadTab(

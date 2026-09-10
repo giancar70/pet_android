@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,8 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
@@ -46,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,13 +53,25 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.Pet
 import com.petapp.android.core.model.PetShare
 import com.petapp.android.core.model.PetShareRole
+import com.petapp.android.features.auth.AuthTextField
 import com.petapp.android.features.incidents.SuccessCheckmark
 import com.petapp.android.features.main.GreetingHeader
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
-private val ContentBackground = Color(0xFFE3FBF1)
+private val ContentBackground = Color.White
 private val CardBg = Color(0xFFF5F5F5)
+private val ButtonDisabledBg = Color(0xFFD9D9D9)
+private val ButtonDisabledText = Color(0xFF8A8A8A)
+
+// Same rule LoginScreen uses for its email field.
+private val compartirEmailPattern = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+
+private fun emailFieldError(text: String): String? = when {
+    text.isBlank() -> "Ingresa un correo electrónico."
+    !compartirEmailPattern.matches(text.trim()) -> "Ingresa un correo electrónico válido."
+    else -> null
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +88,11 @@ fun CompartirMascotaScreen(
     var email by remember { mutableStateOf("") }
     var role by remember { mutableStateOf(PetShareRole.VETERINARY) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    // Same pattern as LoginScreen: the error only *appears* on blur, then re-validates
+    // on every keystroke so it clears as soon as the user fixes it; the send button
+    // stays disabled the whole time the email is blank/malformed.
+    var emailErr by remember { mutableStateOf<String?>(null) }
+    val isEmailValid = emailFieldError(email) == null
 
     // SharingViewModel is Activity-scoped (no Navigation-Compose back stack), so a
     // prior success would otherwise still be sitting in shareState on re-entry.
@@ -138,6 +155,7 @@ fun CompartirMascotaScreen(
                         OutlinedButton(
                             onClick = {
                                 email = ""
+                                emailErr = null
                                 viewModel.resetShareState()
                             },
                             shape = RoundedCornerShape(28.dp),
@@ -163,19 +181,18 @@ fun CompartirMascotaScreen(
                             color = Color(0xFF333333),
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        OutlinedTextField(
+                        AuthTextField(
+                            label = "Correo electrónico",
                             value = email,
-                            onValueChange = { email = it },
-                            placeholder = { Text("Correo electrónico") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = BrandGreen,
-                                unfocusedContainerColor = Color.White,
-                                focusedContainerColor = Color.White,
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
+                            onValueChange = {
+                                email = it
+                                if (emailErr != null) emailErr = emailFieldError(it)
+                            },
+                            leadingIcon = Icons.Filled.Email,
+                            placeholder = "Correo electrónico",
+                            keyboardType = KeyboardType.Email,
+                            errorMessage = emailErr,
+                            onFocusLost = { emailErr = emailFieldError(email) },
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         PetShareRole.entries.forEach { option ->
@@ -215,19 +232,20 @@ fun CompartirMascotaScreen(
                         Button(
                             onClick = {
                                 val petId = selectedPet?.id
-                                when {
-                                    email.isBlank() -> validationError = "Ingresa un correo electrónico."
-                                    !isValidEmail(email.trim()) -> validationError = "Ingresa un correo electrónico válido."
-                                    petId == null -> validationError = "Agrega una mascota primero."
-                                    else -> {
-                                        validationError = null
-                                        viewModel.sharePet(petId, email.trim(), role.apiValue)
-                                    }
+                                if (petId == null) {
+                                    validationError = "Agrega una mascota primero."
+                                } else {
+                                    validationError = null
+                                    viewModel.sharePet(petId, email.trim(), role.apiValue)
                                 }
                             },
-                            enabled = !isLoading,
+                            enabled = isEmailValid && !isLoading,
                             shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BrandGreen,
+                                disabledContainerColor = ButtonDisabledBg,
+                                disabledContentColor = ButtonDisabledText,
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
@@ -245,9 +263,6 @@ fun CompartirMascotaScreen(
         }
     }
 }
-
-private fun isValidEmail(email: String): Boolean =
-    android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
 // Not file-private -- reused by InvitacionesListScreen.kt.
 fun roleLabel(apiValue: String): String =

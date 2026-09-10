@@ -56,7 +56,6 @@ import com.petapp.android.ui.theme.PetProjectTheme
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
-private val ContentBackground = Color(0xFFE3FBF1)
 private val CardBorder = Color(0xFFEFEFF4)
 private val IllustrationBg = Color(0xFFD9FEF2)
 private val InfoIconBg = Color(0xFFD9FEF2)
@@ -82,6 +81,7 @@ fun InicioTab(
     onVerConsultas: () -> Unit = {},
     onVerIncidencias: () -> Unit = {},
     onVerDocumentos: () -> Unit = {},
+    onItemClick: (ActivityCategory, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val hasPets = pets.isNotEmpty()
@@ -89,7 +89,7 @@ fun InicioTab(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (hasPets) Color.White else ContentBackground)
+                .background(Color.White)
                 .verticalScroll(rememberScrollState()),
         ) {
             Surface(color = Color.White) {
@@ -118,6 +118,7 @@ fun InicioTab(
                     onVerConsultas = onVerConsultas,
                     onVerIncidencias = onVerIncidencias,
                     onVerDocumentos = onVerDocumentos,
+                    onItemClick = onItemClick,
                 )
                 Spacer(modifier = Modifier.height(96.dp))
             } else {

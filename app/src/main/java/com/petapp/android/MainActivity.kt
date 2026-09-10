@@ -10,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.petapp.android.core.storage.OnboardingState
 import com.petapp.android.core.storage.TokenStore
 import com.petapp.android.features.auth.ForgotPasswordScreen
@@ -20,11 +22,10 @@ import com.petapp.android.features.main.MainScaffold
 import com.petapp.android.features.onboarding.OnboardingScreen
 import com.petapp.android.features.pets.PetsGateScreen
 import com.petapp.android.features.pets.RegisterPetScreen
-import com.petapp.android.features.splash.SplashScreen
 import com.petapp.android.ui.theme.PetProjectTheme
+import kotlinx.coroutines.delay
 
 sealed interface AppScreen {
-    data object Splash : AppScreen
     data object Onboarding : AppScreen
     data object Login : AppScreen
     data object Register : AppScreen
@@ -37,27 +38,34 @@ sealed interface AppScreen {
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        // Holds the system splash on screen for a beat, matching the previous branding
+        // hold time -- but as a *single* splash instead of the system splash handing off
+        // to a second, separately-drawn Compose splash screen right after it.
+        var keepSplashOnScreen = true
+        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
         super.onCreate(savedInstanceState)
         setContent {
             PetProjectTheme {
-                var screen by remember { mutableStateOf<AppScreen>(AppScreen.Splash) }
+                var screen by remember { mutableStateOf<AppScreen?>(null) }
+                LaunchedEffect(Unit) {
+                    delay(1500)
+                    // Mirrors the app's 3 possible post-splash states: (A) first launch
+                    // ever -> Onboarding; (B) onboarding already seen but logged out ->
+                    // straight to Login, skipping Onboarding; (C) a saved token exists ->
+                    // the existing pets-check -> Main flow.
+                    screen = when {
+                        TokenStore.token != null -> AppScreen.CheckingPets
+                        OnboardingState.hasCompleted -> AppScreen.Login
+                        else -> AppScreen.Onboarding
+                    }
+                    keepSplashOnScreen = false
+                }
+                val resolvedScreen = screen ?: return@PetProjectTheme
                 // Every transition crossfades rather than hard-cutting, matching the same
                 // "smooth transition" request that governs the splash hold itself.
-                Crossfade(targetState = screen, animationSpec = tween(300), label = "AppScreen") { current ->
+                Crossfade(targetState = resolvedScreen, animationSpec = tween(300), label = "AppScreen") { current ->
                     when (current) {
-                        AppScreen.Splash -> SplashScreen(
-                            onTimeout = {
-                                // Mirrors the app's 3 possible post-splash states: (A) first
-                                // launch ever -> Onboarding; (B) onboarding already seen but
-                                // logged out -> straight to Login, skipping Onboarding; (C) a
-                                // saved token exists -> the existing pets-check -> Main flow.
-                                screen = when {
-                                    TokenStore.token != null -> AppScreen.CheckingPets
-                                    OnboardingState.hasCompleted -> AppScreen.Login
-                                    else -> AppScreen.Onboarding
-                                }
-                            },
-                        )
                         AppScreen.Onboarding -> OnboardingScreen(
                             onGetStarted = {
                                 OnboardingState.markCompleted()

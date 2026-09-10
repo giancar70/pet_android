@@ -178,6 +178,10 @@ private fun ConsultaDetailCard(consultation: Consultation) {
         DetailRow("Motivo de consulta", consultation.reason)
         HorizontalDivider(color = CardBorder)
         DetailRow("Fecha de consulta", formatIsoDate(consultation.consultDate))
+        consultation.weightKg?.takeIf { it.isNotBlank() }?.let {
+            HorizontalDivider(color = CardBorder)
+            DetailRow("Peso", "$it Kg")
+        }
         consultation.symptoms?.takeIf { it.isNotBlank() }?.let {
             HorizontalDivider(color = CardBorder)
             DetailRow("Síntomas", it)

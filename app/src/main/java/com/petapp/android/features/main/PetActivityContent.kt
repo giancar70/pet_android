@@ -108,6 +108,7 @@ fun PetActivityContent(
     onVerConsultas: () -> Unit = {},
     onVerIncidencias: () -> Unit = {},
     onVerDocumentos: () -> Unit = {},
+    onItemClick: (ActivityCategory, String) -> Unit = { _, _ -> },
 ) {
     LaunchedEffect(petId) {
         if (petId != null) {
@@ -130,25 +131,25 @@ fun PetActivityContent(
     Column(modifier = modifier.padding(horizontal = 24.dp)) {
         SectionHeader(icon = Icons.Filled.Vaccines, title = "Vacunas", onVerTodo = onVerVacunas)
         Spacer(modifier = Modifier.height(10.dp))
-        VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento)
+        VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento) { id -> onItemClick(ActivityCategory.VACCINE, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.Medication, title = "Desparasitación", onVerTodo = onVerDesparasitacion)
         Spacer(modifier = Modifier.height(10.dp))
-        DewormingSection(dewormingState, onAnadirDesparasitacion)
+        DewormingSection(dewormingState, onAnadirDesparasitacion) { id -> onItemClick(ActivityCategory.DEWORMING, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.MedicalServices, title = "Consultas", onVerTodo = onVerConsultas)
         Spacer(modifier = Modifier.height(10.dp))
-        ConsultasSection(consultasState, onRegistrarConsulta)
+        ConsultasSection(consultasState, onRegistrarConsulta) { id -> onItemClick(ActivityCategory.CONSULTA, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.ReportProblem, title = "Incidencias", onVerTodo = onVerIncidencias)
         Spacer(modifier = Modifier.height(10.dp))
-        IncidenciasSection(incidenciasState, onRegistrarIncidencia)
+        IncidenciasSection(incidenciasState, onRegistrarIncidencia) { id -> onItemClick(ActivityCategory.INCIDENCIA, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -160,14 +161,19 @@ fun PetActivityContent(
 
         SectionHeader(icon = Icons.Filled.Description, title = "Documentos", onVerTodo = onVerDocumentos)
         Spacer(modifier = Modifier.height(10.dp))
-        DocumentsSection(documentsState, onSubirArchivo)
+        DocumentsSection(documentsState, onSubirArchivo) { id -> onItemClick(ActivityCategory.DOCUMENT, id) }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
+// Home only ever shows the most recent few records per section -- the full list lives
+// behind "Ver todo" (Actividad tab). Records already arrive newest-first (backend orders
+// by -created_at), so "last 3" is just the first 3 of the list.
+private const val HOME_SECTION_LIMIT = 3
+
 @Composable
-private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Unit, onCapturarDocumento: () -> Unit) {
+private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Unit, onCapturarDocumento: () -> Unit, onOpen: (String) -> Unit) {
     when (state) {
         is VaccinesListUiState.Loading -> LoadingRow()
         is VaccinesListUiState.Error -> ErrorRow(state.message)
@@ -186,7 +192,7 @@ private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Un
                 )
             } else {
                 RecordList {
-                    state.doses.forEach { dose -> VaccineRow(dose) }
+                    state.doses.take(HOME_SECTION_LIMIT).forEach { dose -> VaccineRow(dose, onClick = { onOpen(dose.id) }) }
                 }
             }
         }
@@ -194,15 +200,16 @@ private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Un
 }
 
 @Composable
-private fun VaccineRow(dose: VaccineDose) {
+private fun VaccineRow(dose: VaccineDose, onClick: () -> Unit) {
     val dueInfo = dueStatus(dose.nextDueOn)
     if (dueInfo == null) {
-        RecordRow(icon = Icons.Filled.Vaccines, title = dose.vaccine, subtitle = formatIsoDate(dose.appliedOn))
+        RecordRow(icon = Icons.Filled.Vaccines, title = dose.vaccine, subtitle = formatIsoDate(dose.appliedOn), onClick = onClick)
     } else {
         RecordRow(
             icon = Icons.Filled.Vaccines,
             title = dose.vaccine,
             subtitle = dueInfo.subtitle,
+            onClick = onClick,
             trailing = {
                 DueStatusPill(
                     label = dueInfo.pillLabel,
@@ -251,7 +258,7 @@ internal fun dueStatus(nextDueOnIso: String?): DueInfo? {
 }
 
 @Composable
-private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit) {
+private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit, onOpen: (String) -> Unit) {
     when (state) {
         is DewormingListUiState.Loading -> LoadingRow()
         is DewormingListUiState.Error -> ErrorRow(state.message)
@@ -269,7 +276,7 @@ private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacio
                 )
             } else {
                 RecordList {
-                    state.applications.forEach { application -> DewormingRow(application) }
+                    state.applications.take(HOME_SECTION_LIMIT).forEach { application -> DewormingRow(application, onClick = { onOpen(application.id) }) }
                 }
             }
         }
@@ -277,16 +284,17 @@ private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacio
 }
 
 @Composable
-private fun DewormingRow(application: DewormingApplication) {
+private fun DewormingRow(application: DewormingApplication, onClick: () -> Unit) {
     val title = application.productName?.takeIf { it.isNotBlank() } ?: "Desparasitación"
     val dueInfo = dueStatus(application.nextDueOn)
     if (dueInfo == null) {
-        RecordRow(icon = Icons.Filled.Medication, title = title, subtitle = formatIsoDate(application.appliedOn))
+        RecordRow(icon = Icons.Filled.Medication, title = title, subtitle = formatIsoDate(application.appliedOn), onClick = onClick)
     } else {
         RecordRow(
             icon = Icons.Filled.Medication,
             title = title,
             subtitle = dueInfo.subtitle,
+            onClick = onClick,
             trailing = {
                 DueStatusPill(
                     label = dueInfo.pillLabel,
@@ -298,7 +306,7 @@ private fun DewormingRow(application: DewormingApplication) {
 }
 
 @Composable
-private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: () -> Unit) {
+private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: () -> Unit, onOpen: (String) -> Unit) {
     when (state) {
         is ConsultasListUiState.Loading -> LoadingRow()
         is ConsultasListUiState.Error -> ErrorRow(state.message)
@@ -316,7 +324,7 @@ private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: (
                 )
             } else {
                 RecordList {
-                    state.consultations.forEach { consultation -> ConsultaRow(consultation) }
+                    state.consultations.take(HOME_SECTION_LIMIT).forEach { consultation -> ConsultaRow(consultation, onClick = { onOpen(consultation.id) }) }
                 }
             }
         }
@@ -324,16 +332,16 @@ private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: (
 }
 
 @Composable
-private fun ConsultaRow(consultation: Consultation) {
+private fun ConsultaRow(consultation: Consultation, onClick: () -> Unit) {
     val subtitle = buildString {
         append(formatIsoDate(consultation.consultDate))
         consultation.diagnosis?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
     }
-    RecordRow(icon = Icons.Filled.MedicalServices, title = consultation.reason, subtitle = subtitle)
+    RecordRow(icon = Icons.Filled.MedicalServices, title = consultation.reason, subtitle = subtitle, onClick = onClick)
 }
 
 @Composable
-private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarIncidencia: () -> Unit) {
+private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarIncidencia: () -> Unit, onOpen: (String) -> Unit) {
     when (state) {
         is IncidenciasListUiState.Loading -> LoadingRow()
         is IncidenciasListUiState.Error -> ErrorRow(state.message)
@@ -351,7 +359,7 @@ private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarInciden
                 )
             } else {
                 RecordList {
-                    state.events.forEach { event -> IncidenciaRow(event) }
+                    state.events.take(HOME_SECTION_LIMIT).forEach { event -> IncidenciaRow(event, onClick = { onOpen(event.id) }) }
                 }
             }
         }
@@ -359,12 +367,12 @@ private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarInciden
 }
 
 @Composable
-private fun IncidenciaRow(event: PetEvent) {
-    RecordRow(icon = Icons.Filled.ReportProblem, title = event.title, subtitle = formatIsoDateTime(event.eventDate))
+private fun IncidenciaRow(event: PetEvent, onClick: () -> Unit) {
+    RecordRow(icon = Icons.Filled.ReportProblem, title = event.title, subtitle = formatIsoDateTime(event.eventDate), onClick = onClick)
 }
 
 @Composable
-private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> Unit) {
+private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> Unit, onOpen: (String) -> Unit) {
     when (state) {
         is DocumentsListUiState.Loading -> LoadingRow()
         is DocumentsListUiState.Error -> ErrorRow(state.message)
@@ -383,7 +391,7 @@ private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> 
                 )
             } else {
                 RecordList {
-                    state.documents.forEach { document -> DocumentRow(document) }
+                    state.documents.take(HOME_SECTION_LIMIT).forEach { document -> DocumentRow(document, onClick = { onOpen(document.id) }) }
                 }
             }
         }
@@ -391,7 +399,7 @@ private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> 
 }
 
 @Composable
-private fun DocumentRow(document: Document) {
+private fun DocumentRow(document: Document, onClick: () -> Unit) {
     // A document uploaded as evidence for an incidencia shows that incidencia's title
     // and icon instead of the generic document ones, so it reads as "the incident that
     // has a file attached" rather than an unrelated standalone document.
@@ -404,6 +412,7 @@ private fun DocumentRow(document: Document) {
         subtitle = subtitle,
         iconBg = if (linkedIncidencia != null) IncidentIconBg else RecordIconBg,
         iconTint = if (linkedIncidencia != null) IncidentRed else BrandGreen,
+        onClick = onClick,
     )
 }
 
@@ -455,8 +464,10 @@ private fun RecordRow(
     iconBg: Color = RecordIconBg,
     iconTint: Color = BrandGreen,
     trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit = {},
 ) {
     Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
         border = BorderStroke(1.dp, CardBorder),

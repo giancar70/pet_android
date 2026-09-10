@@ -21,8 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,7 +52,7 @@ import com.petapp.android.core.util.relativeReminderDateTimeLabel
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
-private val ContentBackground = Color(0xFFE3FBF1)
+private val ContentBackground = Color.White
 private val CardBorder = Color(0xFFEFEFF4)
 private val IconCircleBg = Color(0xFFD9FEF2)
 
@@ -63,6 +66,7 @@ fun RecordatoriosListScreen(
     selectedPet: Pet?,
     onBack: () -> Unit,
     onOpenDetail: (Reminder) -> Unit,
+    onAnadirRecordatorio: () -> Unit,
     viewModel: RemindersViewModel = viewModel(),
 ) {
     val listState by viewModel.listState.collectAsState()
@@ -103,6 +107,19 @@ fun RecordatoriosListScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = onAnadirRecordatorio,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Crear recordatorio", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(24.dp))
 
             when (val state = listState) {
                 is RecordatoriosListUiState.Loading -> LoadingBoxRecordatorios()

@@ -1,0 +1,24 @@
+<resources>
+    <!-- The app is always light-themed (white screens, dark text/icons) and never follows
+         the system's dark-mode setting. Without an explicit windowLightStatusBar/
+         windowLightNavigationBar, the OS decides the status/navigation bar's icon color
+         and (on some OEM skins) background on its own based on the *phone's* theme, which
+         on some devices left a stray white status bar with white (invisible) icons when
+         the phone was in dark mode. Forcing both here makes the bars render the same way
+         (white background, dark icons) on every device regardless of system theme. -->
+    <style name="Theme.PetProjectAPP" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Matches SplashScreen.kt's background/logo exactly so the Android 12+ system splash
+         (shown while the process is cold-starting, before MainActivity.onCreate runs) hands
+         off to the in-app Compose splash without a visible white-to-green flash. -->
+    <style name="Theme.PetProjectAPP.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#D9FEF2</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.PetProjectAPP</item>
+    </style>
+</resources>

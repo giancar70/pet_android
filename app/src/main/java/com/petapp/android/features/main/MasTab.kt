@@ -49,7 +49,7 @@ import com.petapp.android.ui.theme.PetProjectTheme
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
-private val ContentBackground = Color(0xFFE3FBF1)
+private val ContentBackground = Color.White
 private val CardBorder = Color(0xFFEFEFF4)
 private val IconCircleBg = Color(0xFFD9FEF2)
 private val LogoutRed = Color(0xFFC0392B)
@@ -108,7 +108,7 @@ fun MasTab(
             )
         }
         Column(modifier = Modifier.padding(24.dp)) {
-            Text(text = "Más", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(text = "Perfil", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             MasRow(
                 icon = Icons.Filled.Pets,

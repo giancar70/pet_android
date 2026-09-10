@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -50,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,6 +121,7 @@ private fun ConsultaFormContent(
     var diagnostico by remember { mutableStateOf("") }
     var tratamiento by remember { mutableStateOf("") }
     var veterinario by remember { mutableStateOf("") }
+    var peso by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
@@ -249,6 +252,25 @@ private fun ConsultaFormContent(
                         Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White)
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = "Peso (Kg)", color = TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "  (opcional)", color = SubtitleGray, fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = peso,
+                    onValueChange = { peso = it },
+                    placeholder = { Text("Ej. 4.5", color = PlaceholderGray) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = CardBorder,
+                        focusedBorderColor = BrandGreen,
+                        unfocusedTextColor = TextDark,
+                        focusedTextColor = TextDark,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -389,6 +411,7 @@ private fun ConsultaFormContent(
                     val petId = selectedPet?.id
                     when {
                         motivo.isBlank() -> validationError = "Ingresa el motivo de la consulta."
+                        pesoValidationError(peso) != null -> validationError = pesoValidationError(peso)
                         petId == null -> validationError = "Agrega una mascota primero."
                         else -> {
                             validationError = null
@@ -401,6 +424,9 @@ private fun ConsultaFormContent(
                                 diagnostico = diagnostico,
                                 tratamiento = tratamiento,
                                 clinicaVeterinario = veterinario,
+                                // Normalized to a period here -- the backend's weight_kg is a
+                                // DecimalField and rejects a comma decimal separator.
+                                pesoKg = peso.trim().replace(',', '.'),
                             )
                         }
                     }
@@ -426,6 +452,20 @@ private fun ConsultaFormContent(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+// Weight is optional (blank = not recorded), but when a value is entered it must be
+// numeric, decimal allowed (comma or period), and strictly greater than zero -- mirrors
+// PetDetailScreen's weightValidationError.
+private fun pesoValidationError(input: String): String? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.replace(',', '.').toDoubleOrNull()
+    return when {
+        value == null -> "Ingresa un peso válido, por ejemplo 4,5."
+        value <= 0 -> "El peso debe ser mayor que cero."
+        else -> null
     }
 }
 

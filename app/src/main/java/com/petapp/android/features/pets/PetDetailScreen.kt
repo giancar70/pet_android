@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
@@ -531,7 +532,7 @@ private fun EditTextDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text); onDismiss() }, enabled = errorMessage == null) { Text("Guardar") }
+            TextButton(onClick = { onConfirm(text); onDismiss() }, enabled = errorMessage == null) { Text("Aceptar") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancelar") }
@@ -595,6 +596,7 @@ private fun BreedSelectionDialog(
     onDismiss: () -> Unit,
 ) {
     val breedsState by viewModel.breedsState.collectAsState()
+    var searchQuery by remember(species) { mutableStateOf("") }
 
     LaunchedEffect(species) {
         viewModel.fetchBreeds(species)
@@ -616,25 +618,49 @@ private fun BreedSelectionDialog(
                     color = MaterialTheme.colorScheme.error,
                     fontSize = 14.sp,
                 )
-                is BreedsUiState.Loaded -> Column(
-                    modifier = Modifier
-                        .heightIn(max = 360.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    state.breeds.forEach { breed ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelect(breed.name); onDismiss() }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = breed.name == currentBreed,
-                                onClick = { onSelect(breed.name); onDismiss() },
+                is BreedsUiState.Loaded -> Column {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Buscar raza…") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = CardBorder,
+                            focusedBorderColor = BrandGreen,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val filteredBreeds = state.breeds.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        if (filteredBreeds.isEmpty()) {
+                            Text(
+                                text = "No se encontraron razas.",
+                                color = SubtitleGray,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(vertical = 12.dp),
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(breed.name)
+                        }
+                        filteredBreeds.forEach { breed ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelect(breed.name); onDismiss() }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = breed.name == currentBreed,
+                                    onClick = { onSelect(breed.name); onDismiss() },
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(breed.name)
+                            }
                         }
                     }
                 }

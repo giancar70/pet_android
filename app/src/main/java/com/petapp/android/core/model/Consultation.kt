@@ -12,6 +12,7 @@ data class CreateConsultationRequest(
     val diagnosis: String? = null,
     val treatment: String? = null,
     @SerialName("clinic_name") val clinicName: String? = null,
+    @SerialName("weight_kg") val weightKg: String? = null,
 )
 
 @Serializable
@@ -24,5 +25,6 @@ data class Consultation(
     val diagnosis: String? = null,
     val treatment: String? = null,
     @SerialName("clinic_name") val clinicName: String? = null,
+    @SerialName("weight_kg") val weightKg: String? = null,
     @SerialName("created_at") val createdAt: String,
 )
