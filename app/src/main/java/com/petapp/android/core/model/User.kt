@@ -18,6 +18,7 @@ data class User(
     @SerialName("notify_document_uploaded") val notifyDocumentUploaded: Boolean = true,
     @SerialName("notify_via_push") val notifyViaPush: Boolean = true,
     @SerialName("notify_via_email") val notifyViaEmail: Boolean = true,
+    @SerialName("last_selected_pet") val lastSelectedPet: String? = null,
 )
 
 @Serializable
@@ -31,6 +32,7 @@ data class UpdateUserRequest(
     @SerialName("notify_document_uploaded") val notifyDocumentUploaded: Boolean? = null,
     @SerialName("notify_via_push") val notifyViaPush: Boolean? = null,
     @SerialName("notify_via_email") val notifyViaEmail: Boolean? = null,
+    @SerialName("last_selected_pet") val lastSelectedPet: String? = null,
 )
 
 @Serializable

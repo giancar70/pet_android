@@ -21,6 +21,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.R
+import com.petapp.android.core.model.User
+import com.petapp.android.core.network.ApiClient
+import com.petapp.android.core.network.ApiEndpoints
 
 private val BrandGreen = Color(0xFF406E5F)
 
@@ -36,8 +39,15 @@ fun PetsGateScreen(
     // Navigation-Compose to give this screen its own fresh instance), so its list
     // from a previous account would otherwise still be sitting in uiState. Force a
     // fresh fetch every time this gate is entered rather than trusting init{}.
+    //
+    // Looks up the user's last-selected pet first (synced across devices/logins by
+    // PetsViewModel.selectPet()) and passes it as a hint, so returning to the app --
+    // whether after a logout/login or on a different phone -- resumes on the same
+    // pet instead of always defaulting to the first one in the list. Best-effort: a
+    // failure here just falls back to fetchPets()'s existing default selection.
     LaunchedEffect(Unit) {
-        viewModel.fetchPets()
+        val lastSelectedPet = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
+        viewModel.fetchPets(selectPetId = lastSelectedPet)
     }
 
     LaunchedEffect(uiState) {

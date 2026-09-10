@@ -6,6 +6,8 @@ import com.petapp.android.core.model.Breed
 import com.petapp.android.core.model.Pet
 import com.petapp.android.core.model.PetSpecies
 import com.petapp.android.core.model.UpdatePetRequest
+import com.petapp.android.core.model.UpdateUserRequest
+import com.petapp.android.core.model.User
 import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
 import com.petapp.android.core.network.ApiError
@@ -112,6 +114,16 @@ class PetsViewModel : ViewModel() {
     fun selectPet(petId: String) {
         _selectedPetId.value = petId
         PetPreferences.selectedPetId = petId
+        persistLastSelectedPet(petId)
+    }
+
+    // Best-effort: keeps "last viewed pet" in sync server-side so logging in again --
+    // on this device or another one -- resumes on the same pet. Local selection is
+    // already applied by the caller regardless of whether this succeeds.
+    private fun persistLastSelectedPet(petId: String) {
+        viewModelScope.launch {
+            runCatching { ApiClient.patch<UpdateUserRequest, User>(ApiEndpoints.USER, UpdateUserRequest(lastSelectedPet = petId)) }
+        }
     }
 
     fun createPet(name: String, species: PetSpecies, birthDate: String?, imageBytes: ByteArray?) {
@@ -132,6 +144,7 @@ class PetsViewModel : ViewModel() {
                 _uiState.value = PetsUiState.Loaded(current + pet)
                 _selectedPetId.value = pet.id
                 PetPreferences.selectedPetId = pet.id
+                persistLastSelectedPet(pet.id)
                 fetchPets(selectPetId = pet.id)
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreatePetUiState.Error(e.errorMessage)
