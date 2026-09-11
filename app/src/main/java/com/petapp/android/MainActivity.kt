@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.core.model.User
 import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
+import com.petapp.android.core.notifications.PushTokenManager
 import com.petapp.android.core.storage.OnboardingState
 import com.petapp.android.core.storage.TokenStore
 import com.petapp.android.features.auth.ForgotPasswordScreen
@@ -29,6 +30,7 @@ import com.petapp.android.features.pets.PetsViewModel
 import com.petapp.android.features.pets.RegisterPetScreen
 import com.petapp.android.ui.theme.PetProjectTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 sealed interface AppScreen {
     data object Onboarding : AppScreen
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     // cold start reads as two separate views (splash, then a second screen
                     // with its own logo + spinner) rather than one continuous screen.
                     screen = if (TokenStore.token != null) {
+                        launch { PushTokenManager.registerCurrentToken() }
                         val lastSelectedPet = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
                         val pets = petsViewModel.fetchPetsAndAwait(selectPetId = lastSelectedPet)
                         when {

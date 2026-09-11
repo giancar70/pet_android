@@ -24,6 +24,8 @@ import com.petapp.android.R
 import com.petapp.android.core.model.User
 import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
+import com.petapp.android.core.notifications.PushTokenManager
+import kotlinx.coroutines.launch
 
 private val BrandGreen = Color(0xFF406E5F)
 
@@ -46,6 +48,11 @@ fun PetsGateScreen(
     // pet instead of always defaulting to the first one in the list. Best-effort: a
     // failure here just falls back to fetchPets()'s existing default selection.
     LaunchedEffect(Unit) {
+        // Fire-and-forget alongside the pets fetch below rather than awaited -- this
+        // registers (or refreshes) this device's push token for recordatorio
+        // notifications every time the app reaches this gate (cold start, post-login,
+        // post-register), which is the same point Android's own FCM token can change.
+        launch { PushTokenManager.registerCurrentToken() }
         val lastSelectedPet = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
         viewModel.fetchPets(selectPetId = lastSelectedPet)
     }

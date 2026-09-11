@@ -1,5 +1,10 @@
 package com.petapp.android.features.main
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -23,6 +28,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petapp.android.R
 import com.petapp.android.core.model.Pet
@@ -75,6 +82,21 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     LaunchedEffect(Unit) {
         petsViewModel.fetchPets()
         userViewModel.loadUser()
+    }
+
+    // Recordatorio push notifications need this permission on API 33+; requesting it
+    // here (rather than earlier in Onboarding/Login) means it's asked once the user
+    // has actually reached the app's main content, with a pet to set reminders for.
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {}
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     val petsState by petsViewModel.uiState.collectAsState()

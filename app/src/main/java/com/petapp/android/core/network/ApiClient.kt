@@ -127,8 +127,8 @@ object ApiClient {
         if (code !in 200..299) throw serverErrorFor(code, bodyStr)
     }
 
-    suspend fun delete(path: String) {
-        val (code, bodyStr) = withContext(Dispatchers.IO) { runRequest(newRequest(path).delete().build()) }
+    suspend fun delete(path: String, tokenOverride: String? = null) {
+        val (code, bodyStr) = withContext(Dispatchers.IO) { runRequest(newRequest(path, tokenOverride).delete().build()) }
         if (code !in 200..299) throw serverErrorFor(code, bodyStr)
     }
 

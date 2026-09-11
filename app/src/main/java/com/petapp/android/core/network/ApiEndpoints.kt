@@ -11,6 +11,8 @@ object ApiEndpoints {
     const val USER = "/auth/user/"
     const val PASSWORD_RESET_REQUEST = "/auth/password-reset/request/"
     const val PASSWORD_RESET_CONFIRM = "/auth/password-reset/confirm/"
+    const val DEVICE_TOKEN = "/auth/device-token/"
+    fun deviceTokenDelete(token: String) = "/auth/device-token/?token=$token"
     const val PETS = "/pets/"
 
     fun petDetail(id: String) = "/pets/$id/"

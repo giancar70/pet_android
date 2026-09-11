@@ -7,6 +7,7 @@ import com.petapp.android.core.model.User
 import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
 import com.petapp.android.core.network.ApiError
+import com.petapp.android.core.notifications.PushTokenManager
 import com.petapp.android.core.storage.TokenStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +71,11 @@ class UserViewModel : ViewModel() {
         TokenStore.token = null
         viewModelScope.launch {
             if (capturedToken != null) {
+                // Unregister this device's push token first (needs the auth token
+                // that's already been cleared above, hence the override) so a
+                // shared/reused device stops getting this account's recordatorio
+                // notifications the moment it logs out.
+                runCatching { PushTokenManager.unregisterCurrentToken(tokenOverride = capturedToken) }
                 runCatching { ApiClient.postEmpty(ApiEndpoints.LOGOUT, capturedToken) }
             }
         }

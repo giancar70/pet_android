@@ -6,6 +6,7 @@ import com.petapp.android.core.model.Document
 import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
 import com.petapp.android.core.network.ApiError
+import com.petapp.android.core.util.FileSizeLimits
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,6 +94,10 @@ class FilesViewModel : ViewModel() {
     }
 
     fun uploadDocument(petId: String, fileBytes: ByteArray, fileName: String, mimeType: String, documentType: String) {
+        if (fileBytes.size > FileSizeLimits.MAX_DOCUMENT_BYTES) {
+            _uploadState.value = UploadDocumentUiState.Error(FileSizeLimits.documentTooLargeMessage())
+            return
+        }
         _uploadState.value = UploadDocumentUiState.Loading
         viewModelScope.launch {
             try {

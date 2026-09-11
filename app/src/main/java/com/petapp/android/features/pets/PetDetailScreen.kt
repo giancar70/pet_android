@@ -531,11 +531,13 @@ private fun EditTextDialog(
                 }
             }
         },
+        // AlertDialog always renders dismissButton before confirmButton (left to right),
+        // so the slots are swapped here to show Aceptar first, then Cancelar.
         confirmButton = {
-            TextButton(onClick = { onConfirm(text); onDismiss() }, enabled = errorMessage == null) { Text("Aceptar") }
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            TextButton(onClick = { onConfirm(text); onDismiss() }, enabled = errorMessage == null) { Text("Aceptar") }
         },
     )
 }

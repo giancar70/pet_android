@@ -12,6 +12,7 @@ import com.petapp.android.core.network.ApiClient
 import com.petapp.android.core.network.ApiEndpoints
 import com.petapp.android.core.network.ApiError
 import com.petapp.android.core.storage.PetPreferences
+import com.petapp.android.core.util.FileSizeLimits
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -138,6 +139,10 @@ class PetsViewModel : ViewModel() {
     }
 
     fun createPet(name: String, species: PetSpecies, birthDate: String?, imageBytes: ByteArray?) {
+        if (imageBytes != null && imageBytes.size > FileSizeLimits.MAX_IMAGE_BYTES) {
+            _createState.value = CreatePetUiState.Error(FileSizeLimits.imageTooLargeMessage())
+            return
+        }
         _createState.value = CreatePetUiState.Loading
         viewModelScope.launch {
             try {
@@ -196,6 +201,10 @@ class PetsViewModel : ViewModel() {
     }
 
     fun updatePetImage(petId: String, imageBytes: ByteArray) {
+        if (imageBytes.size > FileSizeLimits.MAX_IMAGE_BYTES) {
+            _updatePetImageState.value = UpdatePetImageUiState.Error(FileSizeLimits.imageTooLargeMessage())
+            return
+        }
         _updatePetImageState.value = UpdatePetImageUiState.Loading
         viewModelScope.launch {
             try {
