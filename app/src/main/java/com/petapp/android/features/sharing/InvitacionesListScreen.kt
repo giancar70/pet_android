@@ -65,6 +65,9 @@ private val DeleteRed = Color(0xFFC0392B)
 fun InvitacionesListScreen(
     onBack: () -> Unit,
     onCompartirMascota: () -> Unit,
+    // Sharing management stays owner-only -- a Colaborador/Solo lectura viewing this
+    // screen from a shared pet's context shouldn't be able to invite others to it.
+    canShare: Boolean = true,
     viewModel: SharingViewModel = viewModel(),
 ) {
     val listState by viewModel.allSharesState.collectAsState()
@@ -111,19 +114,21 @@ fun InvitacionesListScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = onCompartirMascota,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Compartir mascota", fontWeight = FontWeight.Bold)
+            if (canShare) {
+                Button(
+                    onClick = onCompartirMascota,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Compartir mascota", fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
 
             when (val state = listState) {
                 is SharesListUiState.Loading -> Box(modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {

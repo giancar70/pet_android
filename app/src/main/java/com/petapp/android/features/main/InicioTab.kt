@@ -119,6 +119,8 @@ fun InicioTab(
                     onVerIncidencias = onVerIncidencias,
                     onVerDocumentos = onVerDocumentos,
                     onItemClick = onItemClick,
+                    canEdit = selectedPet?.canEdit ?: true,
+                    canUploadDocuments = selectedPet?.canUploadDocuments ?: true,
                 )
                 Spacer(modifier = Modifier.height(96.dp))
             } else {

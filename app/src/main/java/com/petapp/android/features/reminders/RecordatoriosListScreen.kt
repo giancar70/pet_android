@@ -107,19 +107,21 @@ fun RecordatoriosListScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = onAnadirRecordatorio,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Crear recordatorio", fontWeight = FontWeight.Bold)
+            if (selectedPet?.canEdit != false) {
+                Button(
+                    onClick = onAnadirRecordatorio,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Crear recordatorio", fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
 
             when (val state = listState) {
                 is RecordatoriosListUiState.Loading -> LoadingBoxRecordatorios()

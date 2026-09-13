@@ -62,18 +62,26 @@ fun MoreOptionsSheet(
     onRegistrarConsulta: () -> Unit,
     onSubirArchivo: () -> Unit,
     onCapturarDocumento: () -> Unit,
+    // A Solo lectura share (canEdit=false) can't add records for the selected pet;
+    // sharing management (isOwner) is a separate, more sensitive permission that not
+    // even a Colaborador (canEdit=true) has. "Añadir mascota" is always available --
+    // creating a new pet doesn't depend on the currently selected one's permissions.
+    canEdit: Boolean = true,
+    canUploadDocuments: Boolean = true,
+    isOwner: Boolean = true,
 ) {
-    val options = listOf(
-        MoreOption(Icons.Filled.Upload, "Subir Archivo", onSubirArchivo),
-        MoreOption(Icons.Filled.DocumentScanner, "Capturar\nDocumento", onCapturarDocumento),
-        MoreOption(Icons.Filled.CameraAlt, "Registrar\nIncidencia", onRegistrarIncidencia),
-        MoreOption(Icons.Filled.Vaccines, "Añadir\nVacuna", onAnadirVacuna),
-        MoreOption(Icons.Filled.Medication, "Añadir\nDesparasitación", onAnadirDesparasitacion),
-        MoreOption(Icons.Filled.MedicalServices, "Añadir\nConsulta", onRegistrarConsulta),
-        MoreOption(Icons.Filled.Share, "Compartir\nmascota", onCompartirMascota),
-        MoreOption(Icons.Filled.Add, "Añadir\nmascota", onAddPet),
-        MoreOption(Icons.Filled.Description, "Añadir\nRecordatorio", onAnadirRecordatorio),
-    )
+    val canUpload = canEdit || canUploadDocuments
+    val options = buildList {
+        if (canUpload) add(MoreOption(Icons.Filled.Upload, "Subir Archivo", onSubirArchivo))
+        if (canUpload) add(MoreOption(Icons.Filled.DocumentScanner, "Capturar\nDocumento", onCapturarDocumento))
+        if (canEdit) add(MoreOption(Icons.Filled.CameraAlt, "Registrar\nIncidencia", onRegistrarIncidencia))
+        if (canEdit) add(MoreOption(Icons.Filled.Vaccines, "Añadir\nVacuna", onAnadirVacuna))
+        if (canEdit) add(MoreOption(Icons.Filled.Medication, "Añadir\nDesparasitación", onAnadirDesparasitacion))
+        if (canEdit) add(MoreOption(Icons.Filled.MedicalServices, "Añadir\nConsulta", onRegistrarConsulta))
+        if (isOwner) add(MoreOption(Icons.Filled.Share, "Compartir\nmascota", onCompartirMascota))
+        add(MoreOption(Icons.Filled.Add, "Añadir\nmascota", onAddPet))
+        if (canEdit) add(MoreOption(Icons.Filled.Description, "Añadir\nRecordatorio", onAnadirRecordatorio))
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         LazyVerticalGrid(

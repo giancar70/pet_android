@@ -16,6 +16,14 @@ data class Pet(
     val color: String? = null,
     val microchip: String? = null,
     val notes: String? = null,
+    // "owner", or the share's role ("family"/"caregiver"/"veterinary") for a pet
+    // shared with the current user. canEdit/canUploadDocuments mirror the
+    // backend's PetUserAccess flags -- both default true so pets fetched before
+    // this field existed (shouldn't happen post-rollout, but keeps old cached
+    // data safe) don't accidentally lock the owner out of their own pet.
+    val role: String? = null,
+    @SerialName("can_edit") val canEdit: Boolean = true,
+    @SerialName("can_upload_documents") val canUploadDocuments: Boolean = true,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
 

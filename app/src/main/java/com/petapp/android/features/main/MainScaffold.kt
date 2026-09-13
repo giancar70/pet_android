@@ -35,6 +35,7 @@ import com.petapp.android.R
 import com.petapp.android.core.model.Pet
 import com.petapp.android.core.model.Reminder
 import com.petapp.android.features.account.MiCuentaScreen
+import com.petapp.android.features.activitylog.ActivityLogScreen
 import com.petapp.android.features.account.PdfViewerScreen
 import com.petapp.android.features.account.PrivacidadScreen
 import com.petapp.android.features.consultations.ConsultaDetailScreen
@@ -106,6 +107,11 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     val pets = (petsState as? PetsUiState.Loaded)?.pets.orEmpty()
     val selectedPet = pets.firstOrNull { it.id == selectedPetId }
     val userFullName = (userState as? UserUiState.Loaded)?.user?.fullName
+    // Defaults to full access (true/true/true) when there's no selected pet yet, so
+    // the sheet doesn't hide everything during the loading gap before pets load.
+    val canEditSelectedPet = selectedPet?.canEdit ?: true
+    val canUploadToSelectedPet = selectedPet?.canUploadDocuments ?: true
+    val isOwnerOfSelectedPet = selectedPet?.let { it.role == "owner" || it.role == null } ?: true
 
     var currentTab by remember { mutableStateOf(MainTab.INICIO) }
     var pendingActivityFilter by remember { mutableStateOf<ActivityCategory?>(null) }
@@ -130,6 +136,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     var showTerms by remember { mutableStateOf(false) }
     var petDetail by remember { mutableStateOf<Pet?>(null) }
+    var showActivityLog by remember { mutableStateOf(false) }
 
     val currentPetDetail = petDetail
     val currentActivityDetail = activityDetail
@@ -176,6 +183,14 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             InvitacionesListScreen(
                 onBack = { showInvitaciones = false },
                 onCompartirMascota = { showCompartirMascota = true },
+                canShare = isOwnerOfSelectedPet,
+            )
+            return
+        }
+        showActivityLog && currentPetDetail != null -> {
+            ActivityLogScreen(
+                petId = currentPetDetail.id,
+                onBack = { showActivityLog = false },
             )
             return
         }
@@ -183,6 +198,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             PetDetailScreen(
                 pet = currentPetDetail,
                 onBack = { petDetail = null },
+                onOpenActivityLog = { showActivityLog = true },
                 viewModel = petsViewModel,
             )
             return
@@ -421,6 +437,9 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 dismiss()
                 showCapturarDocumento = true
             },
+            canEdit = canEditSelectedPet,
+            canUploadDocuments = canUploadToSelectedPet,
+            isOwner = isOwnerOfSelectedPet,
         )
     }
 

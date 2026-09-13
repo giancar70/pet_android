@@ -109,6 +109,8 @@ fun PetActivityContent(
     onVerIncidencias: () -> Unit = {},
     onVerDocumentos: () -> Unit = {},
     onItemClick: (ActivityCategory, String) -> Unit = { _, _ -> },
+    canEdit: Boolean = true,
+    canUploadDocuments: Boolean = true,
 ) {
     LaunchedEffect(petId) {
         if (petId != null) {
@@ -131,25 +133,25 @@ fun PetActivityContent(
     Column(modifier = modifier.padding(horizontal = 24.dp)) {
         SectionHeader(icon = Icons.Filled.Vaccines, title = "Vacunas", onVerTodo = onVerVacunas)
         Spacer(modifier = Modifier.height(10.dp))
-        VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento) { id -> onItemClick(ActivityCategory.VACCINE, id) }
+        VaccinesSection(vacunasState, onAnadirVacuna, onCapturarDocumento, canEdit, canUploadDocuments) { id -> onItemClick(ActivityCategory.VACCINE, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.Medication, title = "Desparasitación", onVerTodo = onVerDesparasitacion)
         Spacer(modifier = Modifier.height(10.dp))
-        DewormingSection(dewormingState, onAnadirDesparasitacion) { id -> onItemClick(ActivityCategory.DEWORMING, id) }
+        DewormingSection(dewormingState, onAnadirDesparasitacion, canEdit) { id -> onItemClick(ActivityCategory.DEWORMING, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.MedicalServices, title = "Consultas", onVerTodo = onVerConsultas)
         Spacer(modifier = Modifier.height(10.dp))
-        ConsultasSection(consultasState, onRegistrarConsulta) { id -> onItemClick(ActivityCategory.CONSULTA, id) }
+        ConsultasSection(consultasState, onRegistrarConsulta, canEdit) { id -> onItemClick(ActivityCategory.CONSULTA, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
         SectionHeader(icon = Icons.Filled.ReportProblem, title = "Incidencias", onVerTodo = onVerIncidencias)
         Spacer(modifier = Modifier.height(10.dp))
-        IncidenciasSection(incidenciasState, onRegistrarIncidencia) { id -> onItemClick(ActivityCategory.INCIDENCIA, id) }
+        IncidenciasSection(incidenciasState, onRegistrarIncidencia, canEdit) { id -> onItemClick(ActivityCategory.INCIDENCIA, id) }
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -161,7 +163,7 @@ fun PetActivityContent(
 
         SectionHeader(icon = Icons.Filled.Description, title = "Documentos", onVerTodo = onVerDocumentos)
         Spacer(modifier = Modifier.height(10.dp))
-        DocumentsSection(documentsState, onSubirArchivo) { id -> onItemClick(ActivityCategory.DOCUMENT, id) }
+        DocumentsSection(documentsState, onSubirArchivo, canEdit || canUploadDocuments) { id -> onItemClick(ActivityCategory.DOCUMENT, id) }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -173,7 +175,14 @@ fun PetActivityContent(
 private const val HOME_SECTION_LIMIT = 3
 
 @Composable
-private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Unit, onCapturarDocumento: () -> Unit, onOpen: (String) -> Unit) {
+private fun VaccinesSection(
+    state: VaccinesListUiState,
+    onAnadirVacuna: () -> Unit,
+    onCapturarDocumento: () -> Unit,
+    canEdit: Boolean,
+    canUploadDocuments: Boolean,
+    onOpen: (String) -> Unit,
+) {
     when (state) {
         is VaccinesListUiState.Loading -> LoadingRow()
         is VaccinesListUiState.Error -> ErrorRow(state.message)
@@ -186,10 +195,10 @@ private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Un
                     icon = Icons.Filled.Vaccines,
                     title = "No hay vacunas registradas",
                     description = "Sube una cartilla o registra la última vacuna aplicada.",
-                    primaryLabel = "Capturar documento",
-                    primarySublabel = "Escanear, subir PDF o foto",
-                    secondaryLabel = "Añadir manualmente",
-                    secondarySublabel = "Registrar vacuna",
+                    primaryLabel = if (canUploadDocuments) "Capturar documento" else null,
+                    primarySublabel = if (canUploadDocuments) "Escanear, subir PDF o foto" else null,
+                    secondaryLabel = if (canEdit) "Añadir manualmente" else null,
+                    secondarySublabel = if (canEdit) "Registrar vacuna" else null,
                     onPrimaryClick = onCapturarDocumento,
                     onSecondaryClick = onAnadirVacuna,
                 )
@@ -261,7 +270,7 @@ internal fun dueStatus(nextDueOnIso: String?): DueInfo? {
 }
 
 @Composable
-private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit, onOpen: (String) -> Unit) {
+private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit, canEdit: Boolean, onOpen: (String) -> Unit) {
     when (state) {
         is DewormingListUiState.Loading -> LoadingRow()
         is DewormingListUiState.Error -> ErrorRow(state.message)
@@ -273,8 +282,8 @@ private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacio
                     description = "Añade una desparasitación o sube una foto del producto.",
                     primaryLabel = null,
                     primarySublabel = null,
-                    secondaryLabel = "Añadir manualmente",
-                    secondarySublabel = "Registrar desparasitación",
+                    secondaryLabel = if (canEdit) "Añadir manualmente" else null,
+                    secondarySublabel = if (canEdit) "Registrar desparasitación" else null,
                     onSecondaryClick = onAnadirDesparasitacion,
                 )
             } else {
@@ -309,7 +318,7 @@ private fun DewormingRow(application: DewormingApplication, onClick: () -> Unit)
 }
 
 @Composable
-private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: () -> Unit, onOpen: (String) -> Unit) {
+private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: () -> Unit, canEdit: Boolean, onOpen: (String) -> Unit) {
     when (state) {
         is ConsultasListUiState.Loading -> LoadingRow()
         is ConsultasListUiState.Error -> ErrorRow(state.message)
@@ -321,8 +330,8 @@ private fun ConsultasSection(state: ConsultasListUiState, onRegistrarConsulta: (
                     description = "Registra el motivo, diagnóstico y tratamiento de la última visita al veterinario.",
                     primaryLabel = null,
                     primarySublabel = null,
-                    secondaryLabel = "Añadir manualmente",
-                    secondarySublabel = "Registrar consulta",
+                    secondaryLabel = if (canEdit) "Añadir manualmente" else null,
+                    secondarySublabel = if (canEdit) "Registrar consulta" else null,
                     onSecondaryClick = onRegistrarConsulta,
                 )
             } else {
@@ -344,7 +353,7 @@ private fun ConsultaRow(consultation: Consultation, onClick: () -> Unit) {
 }
 
 @Composable
-private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarIncidencia: () -> Unit, onOpen: (String) -> Unit) {
+private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarIncidencia: () -> Unit, canEdit: Boolean, onOpen: (String) -> Unit) {
     when (state) {
         is IncidenciasListUiState.Loading -> LoadingRow()
         is IncidenciasListUiState.Error -> ErrorRow(state.message)
@@ -356,8 +365,8 @@ private fun IncidenciasSection(state: IncidenciasListUiState, onRegistrarInciden
                     description = "Registra algo que le haya pasado a tu mascota para llevar un mejor historial.",
                     primaryLabel = null,
                     primarySublabel = null,
-                    secondaryLabel = "Añadir manualmente",
-                    secondarySublabel =  "Registrar incidencia",
+                    secondaryLabel = if (canEdit) "Añadir manualmente" else null,
+                    secondarySublabel = if (canEdit) "Registrar incidencia" else null,
                     onSecondaryClick = onRegistrarIncidencia,
                 )
             } else {
@@ -375,7 +384,7 @@ private fun IncidenciaRow(event: PetEvent, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> Unit, onOpen: (String) -> Unit) {
+private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> Unit, canUpload: Boolean, onOpen: (String) -> Unit) {
     when (state) {
         is DocumentsListUiState.Loading -> LoadingRow()
         is DocumentsListUiState.Error -> ErrorRow(state.message)
@@ -385,8 +394,8 @@ private fun DocumentsSection(state: DocumentsListUiState, onSubirArchivo: () -> 
                     icon = Icons.Filled.Description,
                     title = "Aún no hay documentos",
                     description = "Guarda análisis, estudios, cartillas o cualquier documento importante.",
-                    primaryLabel = "Subir Archivo",
-                    primarySublabel = "Sube un PDF o imagen",
+                    primaryLabel = if (canUpload) "Subir Archivo" else null,
+                    primarySublabel = if (canUpload) "Sube un PDF o imagen" else null,
                     primaryIcon = Icons.Filled.CloudUpload,
                     secondaryLabel = null,
                     secondarySublabel = null,

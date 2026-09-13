@@ -147,24 +147,26 @@ fun DocumentDetailScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-            val isDeleting = deleteState is DeleteDocumentUiState.Loading
-            OutlinedButton(
-                onClick = { showDeleteDialog = true },
-                enabled = !isDeleting,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = IncidentRed),
-                border = BorderStroke(1.dp, IncidentRed),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                if (isDeleting) {
-                    CircularProgressIndicator(color = IncidentRed, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
-                } else {
-                    Icon(Icons.Filled.Delete, contentDescription = null, tint = IncidentRed, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Eliminar documento", fontWeight = FontWeight.Bold)
+            if (selectedPet?.canEdit != false || selectedPet?.canUploadDocuments != false) {
+                Spacer(modifier = Modifier.height(20.dp))
+                val isDeleting = deleteState is DeleteDocumentUiState.Loading
+                OutlinedButton(
+                    onClick = { showDeleteDialog = true },
+                    enabled = !isDeleting,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = IncidentRed),
+                    border = BorderStroke(1.dp, IncidentRed),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                ) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(color = IncidentRed, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                    } else {
+                        Icon(Icons.Filled.Delete, contentDescription = null, tint = IncidentRed, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Eliminar documento", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 

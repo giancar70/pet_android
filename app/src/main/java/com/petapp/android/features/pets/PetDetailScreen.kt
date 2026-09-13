@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NoteAlt
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
@@ -87,8 +88,14 @@ private enum class DetailField { NAME, SPECIES, BREED, SEX, WEIGHT, COLOR, MICRO
 fun PetDetailScreen(
     pet: Pet,
     onBack: () -> Unit,
+    onOpenActivityLog: () -> Unit = {},
     viewModel: PetsViewModel = viewModel(),
 ) {
+    // A shared pet's role/can_edit come from the backend (owner => both true/"owner").
+    // Deleting the whole pet profile stays owner-only even for a Colaborador with
+    // can_edit=true -- see PetDetailView.get_object on the backend.
+    val canEdit = pet.canEdit
+    val isOwner = pet.role == "owner" || pet.role == null
     val updateState by viewModel.updateState.collectAsState()
     val updatePetImageState by viewModel.updatePetImageState.collectAsState()
     val deleteState by viewModel.deleteState.collectAsState()
@@ -183,7 +190,7 @@ fun PetDetailScreen(
             userFullName = null,
             hasPets = true,
             onSwitchPetClick = onBack,
-            onEditPhotoClick = if (updatePetImageState !is UpdatePetImageUiState.Loading) {
+            onEditPhotoClick = if (canEdit && updatePetImageState !is UpdatePetImageUiState.Loading) {
                 { imagePicker.launch("image/*") }
             } else {
                 null
@@ -214,35 +221,37 @@ fun PetDetailScreen(
                 .padding(horizontal = 24.dp),
         ) {
             DetailCard {
-                DetailRow(label = "Nombre", value = name) { activeDialog = DetailField.NAME }
+                DetailRow(label = "Nombre", value = name, editable = canEdit) { activeDialog = DetailField.NAME }
                 HorizontalDivider(color = CardBorder)
-                DetailRow(label = "Especie", value = petSpeciesLabel(species)) { activeDialog = DetailField.SPECIES }
+                DetailRow(label = "Especie", value = petSpeciesLabel(species), editable = canEdit) { activeDialog = DetailField.SPECIES }
                 HorizontalDivider(color = CardBorder)
-                DetailRow(label = "Raza", value = breed.ifBlank { "Agregar" }) { activeDialog = DetailField.BREED }
+                DetailRow(label = "Raza", value = breed.ifBlank { "Agregar" }, editable = canEdit) { activeDialog = DetailField.BREED }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             DetailCard {
-                DetailRow(label = "Sexo", value = petSexLabel(sex)) { activeDialog = DetailField.SEX }
+                DetailRow(label = "Sexo", value = petSexLabel(sex), editable = canEdit) { activeDialog = DetailField.SEX }
                 HorizontalDivider(color = CardBorder)
                 DetailRow(
                     label = "Fecha de Nacimiento",
                     value = birthDateIso?.let(::formatDisplayDate) ?: "Agregar",
+                    editable = canEdit,
                 ) { showDatePicker = true }
                 HorizontalDivider(color = CardBorder)
                 DetailRow(
                     label = "Peso (Kg)",
                     value = weightKg.ifBlank { "Agregar" }.let { if (it == "Agregar") it else "$it Kg" },
+                    editable = canEdit,
                 ) { activeDialog = DetailField.WEIGHT }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             DetailCard {
-                DetailRow(label = "Color", value = color.ifBlank { "Agregar" }) { activeDialog = DetailField.COLOR }
+                DetailRow(label = "Color", value = color.ifBlank { "Agregar" }, editable = canEdit) { activeDialog = DetailField.COLOR }
                 HorizontalDivider(color = CardBorder)
-                DetailRow(label = "Microchip", value = microchip.ifBlank { "Agregar" }) { activeDialog = DetailField.MICROCHIP }
+                DetailRow(label = "Microchip", value = microchip.ifBlank { "Agregar" }, editable = canEdit) { activeDialog = DetailField.MICROCHIP }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -251,14 +260,16 @@ fun PetDetailScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { activeDialog = DetailField.NOTES }
+                        .let { if (canEdit) it.clickable { activeDialog = DetailField.NOTES } else it }
                         .padding(vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Filled.NoteAlt, contentDescription = null, tint = BrandGreen)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(text = "Notas", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
+                    if (canEdit) {
+                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
+                    }
                 }
                 Text(
                     text = notes.ifBlank { "Información adicional, información relevante, temperamento, etc." },
@@ -266,6 +277,23 @@ fun PetDetailScreen(
                     fontSize = 13.sp,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            DetailCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenActivityLog)
+                        .padding(vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.History, contentDescription = null, tint = BrandGreen)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = "Historial de actividad", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -282,72 +310,76 @@ fun PetDetailScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (updateState is UpdatePetUiState.Error) {
-                Text(
-                    text = (updateState as UpdatePetUiState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 14.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            val isSaving = updateState is UpdatePetUiState.Loading
-            Button(
-                onClick = {
-                    viewModel.updatePet(
-                        pet.id,
-                        UpdatePetRequest(
-                            name = name,
-                            species = species,
-                            breed = breed.ifBlank { null },
-                            sex = sex,
-                            birthDate = birthDateIso,
-                            weightKg = weightKg.ifBlank { null },
-                            color = color.ifBlank { null },
-                            microchip = microchip.ifBlank { null },
-                            notes = notes.ifBlank { null },
-                        ),
+            if (canEdit) {
+                if (updateState is UpdatePetUiState.Error) {
+                    Text(
+                        text = (updateState as UpdatePetUiState.Error).message,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                },
-                enabled = !isSaving,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                Text(text = if (isSaving) "Guardando…" else "Guardar", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                val isSaving = updateState is UpdatePetUiState.Loading
+                Button(
+                    onClick = {
+                        viewModel.updatePet(
+                            pet.id,
+                            UpdatePetRequest(
+                                name = name,
+                                species = species,
+                                breed = breed.ifBlank { null },
+                                sex = sex,
+                                birthDate = birthDateIso,
+                                weightKg = weightKg.ifBlank { null },
+                                color = color.ifBlank { null },
+                                microchip = microchip.ifBlank { null },
+                                notes = notes.ifBlank { null },
+                            ),
+                        )
+                    },
+                    enabled = !isSaving,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                ) {
+                    Text(text = if (isSaving) "Guardando…" else "Guardar", fontWeight = FontWeight.Bold)
+                }
             }
 
-            if (deleteState is DeletePetUiState.Error) {
+            if (isOwner) {
+                if (deleteState is DeletePetUiState.Error) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = (deleteState as DeletePetUiState.Error).message,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = (deleteState as DeletePetUiState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 14.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            val isDeleting = deleteState is DeletePetUiState.Loading
-            OutlinedButton(
-                onClick = { showDeleteDialog = true },
-                enabled = !isDeleting,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DeleteRed),
-                border = BorderStroke(1.dp, DeleteRed),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-            ) {
-                if (isDeleting) {
-                    CircularProgressIndicator(color = DeleteRed, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
-                } else {
-                    Icon(Icons.Filled.Delete, contentDescription = null, tint = DeleteRed, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Eliminar mascota", fontWeight = FontWeight.Bold)
+                val isDeleting = deleteState is DeletePetUiState.Loading
+                OutlinedButton(
+                    onClick = { showDeleteDialog = true },
+                    enabled = !isDeleting,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DeleteRed),
+                    border = BorderStroke(1.dp, DeleteRed),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                ) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(color = DeleteRed, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                    } else {
+                        Icon(Icons.Filled.Delete, contentDescription = null, tint = DeleteRed, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Eliminar mascota", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
@@ -482,11 +514,11 @@ private fun DetailCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun DetailRow(label: String, value: String, onClick: () -> Unit) {
+private fun DetailRow(label: String, value: String, editable: Boolean = true, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .let { if (editable) it.clickable(onClick = onClick) else it }
             .padding(vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -494,8 +526,10 @@ private fun DetailRow(label: String, value: String, onClick: () -> Unit) {
         Text(text = label, color = SubtitleGray, fontSize = 14.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = value, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray, modifier = Modifier.size(18.dp))
+            if (editable) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }

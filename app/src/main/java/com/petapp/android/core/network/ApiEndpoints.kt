@@ -34,4 +34,5 @@ object ApiEndpoints {
     fun petDocuments(petId: String) = "/pets/$petId/documents/"
     fun petDocumentDetail(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/"
     fun petEventDocuments(petId: String, eventId: String) = "/pets/$petId/documents/?event=$eventId"
+    fun petActivityLog(petId: String) = "/pets/$petId/activity-log/"
 }
