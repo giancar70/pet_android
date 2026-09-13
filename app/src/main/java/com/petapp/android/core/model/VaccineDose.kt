@@ -20,5 +20,6 @@ data class VaccineDose(
     @SerialName("next_due_on") val nextDueOn: String? = null,
     @SerialName("lot_number") val lotNumber: String? = null,
     val notes: String? = null,
+    val status: String = "active",
     @SerialName("created_at") val createdAt: String,
 )

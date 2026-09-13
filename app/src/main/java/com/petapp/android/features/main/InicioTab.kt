@@ -152,7 +152,9 @@ private fun TodoAlDiaBadge(
     val doses = (vaccinesState as? VaccinesListUiState.Loaded)?.doses
     val applications = (dewormingState as? DewormingListUiState.Loaded)?.applications
     if (doses == null && applications == null) return
-    val hasOverdue = doses.orEmpty().any { dueStatus(it.nextDueOn)?.isOverdue == true } ||
+    // A replaced dose (superseded by a newer one of the same vaccine) no longer
+    // counts toward the "registros vencidos" banner.
+    val hasOverdue = doses.orEmpty().any { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true } ||
         applications.orEmpty().any { dueStatus(it.nextDueOn)?.isOverdue == true }
 
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {

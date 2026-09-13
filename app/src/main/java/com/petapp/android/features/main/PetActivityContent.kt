@@ -178,7 +178,10 @@ private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Un
         is VaccinesListUiState.Loading -> LoadingRow()
         is VaccinesListUiState.Error -> ErrorRow(state.message)
         is VaccinesListUiState.Loaded -> {
-            if (state.doses.isEmpty()) {
+            // A dose replaced by a newer one of the same vaccine is superseded --
+            // hidden from the home summary (it still shows in Actividad's full history).
+            val activeDoses = state.doses.filter { it.status != "replaced" }
+            if (activeDoses.isEmpty()) {
                 EmptyStateCard(
                     icon = Icons.Filled.Vaccines,
                     title = "No hay vacunas registradas",
@@ -192,7 +195,7 @@ private fun VaccinesSection(state: VaccinesListUiState, onAnadirVacuna: () -> Un
                 )
             } else {
                 RecordList {
-                    state.doses.take(HOME_SECTION_LIMIT).forEach { dose -> VaccineRow(dose, onClick = { onOpen(dose.id) }) }
+                    activeDoses.take(HOME_SECTION_LIMIT).forEach { dose -> VaccineRow(dose, onClick = { onOpen(dose.id) }) }
                 }
             }
         }
