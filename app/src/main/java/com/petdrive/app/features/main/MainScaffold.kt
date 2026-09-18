@@ -1,0 +1,538 @@
+package com.petdrive.app.features.main
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.Pet
+import com.petdrive.app.core.model.Reminder
+import com.petdrive.app.features.account.MiCuentaScreen
+import com.petdrive.app.features.activitylog.ActivityLogScreen
+import com.petdrive.app.core.util.LegalUrls
+import com.petdrive.app.core.util.openUrl
+import com.petdrive.app.features.account.PrivacidadScreen
+import com.petdrive.app.features.consultations.ConsultaDetailScreen
+import com.petdrive.app.features.consultations.RegistrarConsultaScreen
+import com.petdrive.app.features.deworming.DesparasitacionDetailScreen
+import com.petdrive.app.features.deworming.RegistrarDesparasitacionScreen
+import com.petdrive.app.features.files.CapturarDocumentoScreen
+import com.petdrive.app.features.files.DocumentDetailScreen
+import com.petdrive.app.features.files.SubirArchivoScreen
+import com.petdrive.app.features.incidents.IncidenciaDetailScreen
+import com.petdrive.app.features.incidents.RegistrarIncidenciaScreen
+import com.petdrive.app.features.auth.AuthViewModel
+import com.petdrive.app.features.pets.GestionarPetScreen
+import com.petdrive.app.features.pets.PetDetailScreen
+import com.petdrive.app.features.pets.PetsUiState
+import com.petdrive.app.features.pets.PetsViewModel
+import com.petdrive.app.features.pets.RegisterPetScreen
+import com.petdrive.app.features.reminders.AnadirRecordatorioScreen
+import com.petdrive.app.features.reminders.RecordatorioDetailScreen
+import com.petdrive.app.features.reminders.RecordatoriosListScreen
+import com.petdrive.app.features.sharing.CompartirMascotaScreen
+import com.petdrive.app.features.sharing.InvitacionesListScreen
+import com.petdrive.app.features.vaccines.RegistrarVacunaScreen
+import com.petdrive.app.features.vaccines.VacunaDetailScreen
+import kotlinx.coroutines.launch
+
+private val BrandGreen = Color(0xFF406E5F)
+
+private enum class MainTab {
+    INICIO,
+    ACTIVIDAD,
+    MAS,
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScaffold(onLoggedOut: () -> Unit) {
+    val petsViewModel: PetsViewModel = viewModel()
+    val userViewModel: UserViewModel = viewModel()
+    val authViewModel: AuthViewModel = viewModel()
+
+    // Both ViewModels are Activity-scoped and outlive a single login session, so a
+    // fresh fetch is needed on every entry into Main rather than relying on init{}
+    // (which only ran once, possibly for a previous account).
+    LaunchedEffect(Unit) {
+        petsViewModel.fetchPets()
+        userViewModel.loadUser()
+    }
+
+    // Recordatorio push notifications need this permission on API 33+; requesting it
+    // here (rather than earlier in Onboarding/Login) means it's asked once the user
+    // has actually reached the app's main content, with a pet to set reminders for.
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {}
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    val petsState by petsViewModel.uiState.collectAsState()
+    val selectedPetId by petsViewModel.selectedPetId.collectAsState()
+    val userState by userViewModel.uiState.collectAsState()
+
+    val pets = (petsState as? PetsUiState.Loaded)?.pets.orEmpty()
+    val selectedPet = pets.firstOrNull { it.id == selectedPetId }
+    val userFullName = (userState as? UserUiState.Loaded)?.user?.fullName
+    // Defaults to full access (true/true/true) when there's no selected pet yet, so
+    // the sheet doesn't hide everything during the loading gap before pets load.
+    val canEditSelectedPet = selectedPet?.canEdit ?: true
+    val canUploadToSelectedPet = selectedPet?.canUploadDocuments ?: true
+    val isOwnerOfSelectedPet = selectedPet?.let { it.role == "owner" || it.role == null } ?: true
+
+    var currentTab by remember { mutableStateOf(MainTab.INICIO) }
+    // Hoisted here (rather than local state inside ActividadTab) because opening an
+    // item's detail screen swaps ActividadTab out of composition entirely (see the
+    // `currentActivityDetail != null -> { ...; return }` branch below) -- a plain
+    // `remember` inside ActividadTab would reset back to "Todos" on every return from
+    // a detail screen. Also doubles as the "Ver todo" one-shot argument from Inicio.
+    var activityFilter by remember { mutableStateOf<ActivityCategory?>(null) }
+    var activityDetail by remember { mutableStateOf<Pair<ActivityCategory, String>?>(null) }
+    var showAddPet by remember { mutableStateOf(false) }
+    var showPetSwitcher by remember { mutableStateOf(false) }
+    var showMoreOptions by remember { mutableStateOf(false) }
+    var showGestionarPets by remember { mutableStateOf(false) }
+    var showRegistrarIncidencia by remember { mutableStateOf(false) }
+    var showAnadirVacuna by remember { mutableStateOf(false) }
+    var showAnadirDesparasitacion by remember { mutableStateOf(false) }
+    var showRegistrarConsulta by remember { mutableStateOf(false) }
+    var showSubirArchivo by remember { mutableStateOf(false) }
+    var showCapturarDocumento by remember { mutableStateOf(false) }
+    var showAnadirRecordatorio by remember { mutableStateOf(false) }
+    var showRecordatorios by remember { mutableStateOf(false) }
+    var recordatorioDetail by remember { mutableStateOf<Reminder?>(null) }
+    var showInvitaciones by remember { mutableStateOf(false) }
+    var showCompartirMascota by remember { mutableStateOf(false) }
+    var showMiCuenta by remember { mutableStateOf(false) }
+    var showAjustes by remember { mutableStateOf(false) }
+    var petDetail by remember { mutableStateOf<Pet?>(null) }
+    var showActivityLog by remember { mutableStateOf(false) }
+
+    val currentPetDetail = petDetail
+    val currentActivityDetail = activityDetail
+    val currentRecordatorioDetail = recordatorioDetail
+    when {
+        currentRecordatorioDetail != null -> {
+            RecordatorioDetailScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                reminderId = currentRecordatorioDetail.id,
+                onBack = { recordatorioDetail = null },
+                onDeleted = { recordatorioDetail = null },
+            )
+            return
+        }
+        showAnadirRecordatorio -> {
+            AnadirRecordatorioScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showAnadirRecordatorio = false },
+                onFinish = { showAnadirRecordatorio = false },
+            )
+            return
+        }
+        showRecordatorios -> {
+            RecordatoriosListScreen(
+                selectedPet = selectedPet,
+                onBack = { showRecordatorios = false },
+                onOpenDetail = { reminder -> recordatorioDetail = reminder },
+                onAnadirRecordatorio = { showAnadirRecordatorio = true },
+            )
+            return
+        }
+        showCompartirMascota -> {
+            CompartirMascotaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showCompartirMascota = false },
+                onFinish = { showCompartirMascota = false },
+            )
+            return
+        }
+        showInvitaciones -> {
+            InvitacionesListScreen(
+                onBack = { showInvitaciones = false },
+                onCompartirMascota = { showCompartirMascota = true },
+                canShare = isOwnerOfSelectedPet,
+            )
+            return
+        }
+        showActivityLog && currentPetDetail != null -> {
+            ActivityLogScreen(
+                petId = currentPetDetail.id,
+                onBack = { showActivityLog = false },
+            )
+            return
+        }
+        currentPetDetail != null -> {
+            PetDetailScreen(
+                pet = currentPetDetail,
+                onBack = { petDetail = null },
+                onOpenActivityLog = { showActivityLog = true },
+                viewModel = petsViewModel,
+            )
+            return
+        }
+        currentActivityDetail != null -> {
+            val (category, id) = currentActivityDetail
+            when (category) {
+                ActivityCategory.VACCINE -> VacunaDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    doseId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.DEWORMING -> DesparasitacionDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    applicationId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.CONSULTA -> ConsultaDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    consultationId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.INCIDENCIA -> IncidenciaDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    eventId = id,
+                    onBack = { activityDetail = null },
+                )
+                ActivityCategory.DOCUMENT -> DocumentDetailScreen(
+                    selectedPet = selectedPet,
+                    userFullName = userFullName,
+                    documentId = id,
+                    onBack = { activityDetail = null },
+                )
+            }
+            return
+        }
+        showAddPet -> {
+            RegisterPetScreen(
+                onDone = { showAddPet = false },
+                onSkip = { showAddPet = false },
+                viewModel = petsViewModel,
+            )
+            return
+        }
+        showRegistrarIncidencia -> {
+            RegistrarIncidenciaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showRegistrarIncidencia = false },
+                onFinish = { showRegistrarIncidencia = false },
+                onViewActivity = {
+                    showRegistrarIncidencia = false
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showAnadirVacuna -> {
+            RegistrarVacunaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showAnadirVacuna = false },
+                onFinish = { showAnadirVacuna = false },
+                onViewActivity = {
+                    showAnadirVacuna = false
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showAnadirDesparasitacion -> {
+            RegistrarDesparasitacionScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showAnadirDesparasitacion = false },
+                onFinish = { showAnadirDesparasitacion = false },
+                onViewActivity = {
+                    showAnadirDesparasitacion = false
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showRegistrarConsulta -> {
+            RegistrarConsultaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showRegistrarConsulta = false },
+                onFinish = { showRegistrarConsulta = false },
+                onViewActivity = {
+                    showRegistrarConsulta = false
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showSubirArchivo -> {
+            SubirArchivoScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showSubirArchivo = false },
+                onViewActivity = {
+                    showSubirArchivo = false
+                    activityFilter = ActivityCategory.DOCUMENT
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showCapturarDocumento -> {
+            CapturarDocumentoScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onBack = { showCapturarDocumento = false },
+                onViewActivity = {
+                    showCapturarDocumento = false
+                    activityFilter = ActivityCategory.DOCUMENT
+                    currentTab = MainTab.ACTIVIDAD
+                },
+            )
+            return
+        }
+        showAjustes -> {
+            PrivacidadScreen(
+                onBack = { showAjustes = false },
+                onOpenPrivacyPolicy = { openUrl(context, LegalUrls.PRIVACY_POLICY) },
+                onOpenTerms = { openUrl(context, LegalUrls.TERMS) },
+                onAccountDeleted = onLoggedOut,
+                viewModel = userViewModel,
+            )
+            return
+        }
+        showMiCuenta -> {
+            MiCuentaScreen(
+                onBack = { showMiCuenta = false },
+                viewModel = userViewModel,
+            )
+            return
+        }
+        showGestionarPets -> {
+            GestionarPetScreen(
+                pets = pets,
+                selectedPetId = selectedPetId,
+                onBack = { showGestionarPets = false },
+                onAddPet = { showAddPet = true },
+                onOpenPetDetail = { petDetail = it },
+            )
+            return
+        }
+    }
+
+    if (showPetSwitcher) {
+        val sheetState = rememberModalBottomSheetState()
+        val scope = rememberCoroutineScope()
+        fun dismiss() {
+            scope.launch { sheetState.hide() }.invokeOnCompletion { showPetSwitcher = false }
+        }
+        PetSwitcherSheet(
+            pets = pets,
+            selectedPetId = selectedPetId,
+            onSelectPet = { pet ->
+                petsViewModel.selectPet(pet.id)
+                dismiss()
+            },
+            onAddPet = {
+                dismiss()
+                showAddPet = true
+            },
+            onDismiss = { dismiss() },
+            sheetState = sheetState,
+        )
+    }
+
+    if (showMoreOptions) {
+        val sheetState = rememberModalBottomSheetState()
+        val scope = rememberCoroutineScope()
+        fun dismiss() {
+            scope.launch { sheetState.hide() }.invokeOnCompletion { showMoreOptions = false }
+        }
+        MoreOptionsSheet(
+            onDismiss = { dismiss() },
+            sheetState = sheetState,
+            onAddPet = {
+                dismiss()
+                showAddPet = true
+            },
+            onRegistrarIncidencia = {
+                dismiss()
+                showRegistrarIncidencia = true
+            },
+            onAnadirVacuna = {
+                dismiss()
+                showAnadirVacuna = true
+            },
+            onAnadirDesparasitacion = {
+                dismiss()
+                showAnadirDesparasitacion = true
+            },
+            onAnadirRecordatorio = {
+                dismiss()
+                showAnadirRecordatorio = true
+            },
+            onCompartirMascota = {
+                dismiss()
+                showCompartirMascota = true
+            },
+            onRegistrarConsulta = {
+                dismiss()
+                showRegistrarConsulta = true
+            },
+            onSubirArchivo = {
+                dismiss()
+                showSubirArchivo = true
+            },
+            onCapturarDocumento = {
+                dismiss()
+                showCapturarDocumento = true
+            },
+            canEdit = canEditSelectedPet,
+            canUploadDocuments = canUploadToSelectedPet,
+            isOwner = isOwnerOfSelectedPet,
+        )
+    }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar(containerColor = Color.White) {
+                NavigationBarItem(
+                    selected = currentTab == MainTab.INICIO,
+                    onClick = { currentTab = MainTab.INICIO },
+                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                    label = { Text("Inicio") },
+                    colors = mainNavColors(),
+                )
+                NavigationBarItem(
+                    selected = currentTab == MainTab.ACTIVIDAD,
+                    onClick = { currentTab = MainTab.ACTIVIDAD },
+                    icon = { Icon(Icons.Filled.Pets, contentDescription = null) },
+                    label = { Text("Actividad") },
+                    colors = mainNavColors(),
+                )
+                NavigationBarItem(
+                    selected = currentTab == MainTab.MAS,
+                    onClick = { currentTab = MainTab.MAS },
+                    icon = { Icon(Icons.Filled.MoreHoriz, contentDescription = null) },
+                    label = { Text("Perfil") },
+                    colors = mainNavColors(),
+                )
+            }
+        },
+    ) { paddingValues ->
+        val contentModifier = Modifier.padding(paddingValues)
+        when (currentTab) {
+            MainTab.INICIO -> InicioTab(
+                pets = pets,
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onSwitchPetClick = { showPetSwitcher = true },
+                onAddPetClick = { showAddPet = true },
+                onMoreClick = { showMoreOptions = true },
+                onAnadirVacuna = { showAnadirVacuna = true },
+                onAnadirDesparasitacion = { showAnadirDesparasitacion = true },
+                onRegistrarConsulta = { showRegistrarConsulta = true },
+                onRegistrarIncidencia = { showRegistrarIncidencia = true },
+                onAnadirRecordatorio = { showAnadirRecordatorio = true },
+                onCapturarDocumento = { showCapturarDocumento = true },
+                onSubirArchivo = { showSubirArchivo = true },
+                onVerVacunas = {
+                    activityFilter = ActivityCategory.VACCINE
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerDesparasitacion = {
+                    activityFilter = ActivityCategory.DEWORMING
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerConsultas = {
+                    activityFilter = ActivityCategory.CONSULTA
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerIncidencias = {
+                    activityFilter = ActivityCategory.INCIDENCIA
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onVerDocumentos = {
+                    activityFilter = ActivityCategory.DOCUMENT
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onItemClick = { category, id -> activityDetail = category to id },
+                modifier = contentModifier,
+            )
+            MainTab.ACTIVIDAD -> ActividadTab(
+                pets = pets,
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onSwitchPetClick = { showPetSwitcher = true },
+                onMoreClick = { showMoreOptions = true },
+                selectedFilter = activityFilter,
+                onFilterChange = { activityFilter = it },
+                onItemClick = { category, id -> activityDetail = category to id },
+                modifier = contentModifier,
+            )
+            MainTab.MAS -> MasTab(
+                pets = pets,
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                onSwitchPetClick = { showPetSwitcher = true },
+                onGestionarPetsClick = { showGestionarPets = true },
+                onRecordatoriosClick = { showRecordatorios = true },
+                onInvitacionesClick = { showInvitaciones = true },
+                onMiCuentaClick = { showMiCuenta = true },
+                onAjustesClick = { showAjustes = true },
+                onLogout = {
+                    petsViewModel.clearState()
+                    userViewModel.logout()
+                    userViewModel.reset()
+                    authViewModel.reset()
+                    onLoggedOut()
+                },
+                modifier = contentModifier,
+            )
+        }
+    }
+}
+
+@Composable
+private fun mainNavColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = BrandGreen,
+    selectedTextColor = BrandGreen,
+    indicatorColor = Color(0xFFD9FEF2),
+)

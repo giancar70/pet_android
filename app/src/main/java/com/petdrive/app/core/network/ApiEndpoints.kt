@@ -1,0 +1,38 @@
+package com.petdrive.app.core.network
+
+object ApiEndpoints {
+    // Android emulator alias for host localhost; change this one constant when the
+    // backend's reachable address changes (mirrors APIEndpoint.baseURL in iOS).
+    const val BASE_URL = "https://pet-api-production-a168.up.railway.app/api"
+
+    const val REGISTER = "/auth/register/"
+    const val LOGIN = "/auth/login/"
+    const val LOGOUT = "/auth/logout/"
+    const val USER = "/auth/user/"
+    const val PASSWORD_RESET_REQUEST = "/auth/password-reset/request/"
+    const val PASSWORD_RESET_CONFIRM = "/auth/password-reset/confirm/"
+    const val DEVICE_TOKEN = "/auth/device-token/"
+    fun deviceTokenDelete(token: String) = "/auth/device-token/?token=$token"
+    const val PETS = "/pets/"
+
+    fun petDetail(id: String) = "/pets/$id/"
+    fun breeds(species: String) = "/pets/breeds/?species=$species"
+    fun petEvents(petId: String) = "/pets/$petId/events/"
+    fun petEventDetail(petId: String, eventId: String) = "/pets/$petId/events/$eventId/"
+    fun petVaccineDoses(petId: String) = "/pets/$petId/vaccine-doses/"
+    fun petVaccineDoseDetail(petId: String, doseId: String) = "/pets/$petId/vaccine-doses/$doseId/"
+    fun petDewormingApplications(petId: String) = "/pets/$petId/deworming-applications/"
+    fun petDewormingApplicationDetail(petId: String, applicationId: String) =
+        "/pets/$petId/deworming-applications/$applicationId/"
+    fun petReminders(petId: String) = "/pets/$petId/reminders/"
+    fun petReminderDetail(petId: String, reminderId: String) = "/pets/$petId/reminders/$reminderId/"
+    fun petShare(petId: String) = "/pets/$petId/share/"
+    const val PET_SHARES_ALL = "/pets/shares/"
+    fun petShareDetail(shareId: String) = "/pets/shares/$shareId/"
+    fun petConsultations(petId: String) = "/pets/$petId/consultations/"
+    fun petConsultationDetail(petId: String, consultationId: String) = "/pets/$petId/consultations/$consultationId/"
+    fun petDocuments(petId: String) = "/pets/$petId/documents/"
+    fun petDocumentDetail(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/"
+    fun petEventDocuments(petId: String, eventId: String) = "/pets/$petId/documents/?event=$eventId"
+    fun petActivityLog(petId: String) = "/pets/$petId/activity-log/"
+}

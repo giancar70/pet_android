@@ -1,0 +1,809 @@
+package com.petdrive.app.features.files
+
+import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.DocumentTypeOption
+import com.petdrive.app.core.model.Pet
+import com.petdrive.app.features.main.GreetingHeader
+import java.io.File
+import java.text.DecimalFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+private val BrandGreen = Color(0xFF406E5F)
+private val SubtitleGray = Color(0xFF666666)
+private val IllustrationBg = Color(0xFFD9FEF2)
+private val CardBorder = Color(0xFFEFEFF4)
+private val ChipBg = Color(0xFFD9FEF2)
+
+private data class SelectedFile(
+    val uri: Uri,
+    val bytes: ByteArray,
+    val name: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val lastModifiedMillis: Long?,
+)
+
+private sealed interface UploadStep {
+    data object Picker : UploadStep
+    data class Selected(val file: SelectedFile) : UploadStep
+    data class Success(val file: SelectedFile) : UploadStep
+}
+
+@Composable
+fun SubirArchivoScreen(
+    selectedPet: Pet?,
+    userFullName: String?,
+    onBack: () -> Unit,
+    onViewActivity: () -> Unit,
+    viewModel: FilesViewModel = viewModel(),
+) {
+    var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
+
+    when (val current = step) {
+        is UploadStep.Picker -> SubirArchivoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            onBack = onBack,
+            onFilePicked = { step = UploadStep.Selected(it) },
+        )
+        is UploadStep.Selected -> ArchivoSeleccionadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onBack = { step = UploadStep.Picker },
+            onUploaded = { step = UploadStep.Success(current.file) },
+            viewModel = viewModel,
+        )
+        is UploadStep.Success -> DocumentoGuardadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onViewActivity = onViewActivity,
+            onUploadAnother = { step = UploadStep.Picker },
+        )
+    }
+}
+
+// Mirrors SubirArchivoScreen's Picker -> Selected -> Success flow, but the "Picker" step
+// launches the device camera immediately instead of a file picker. Reuses the same
+// review/upload (ArchivoSeleccionadoStep) and success (DocumentoGuardadoStep) steps.
+@Composable
+fun CapturarDocumentoScreen(
+    selectedPet: Pet?,
+    userFullName: String?,
+    onBack: () -> Unit,
+    onViewActivity: () -> Unit,
+    viewModel: FilesViewModel = viewModel(),
+) {
+    var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
+
+    when (val current = step) {
+        is UploadStep.Picker -> CapturaDocumentoStep(
+            onBack = onBack,
+            onCaptured = { step = UploadStep.Selected(it) },
+        )
+        is UploadStep.Selected -> ArchivoSeleccionadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onBack = { step = UploadStep.Picker },
+            onUploaded = { step = UploadStep.Success(current.file) },
+            viewModel = viewModel,
+        )
+        is UploadStep.Success -> DocumentoGuardadoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            file = current.file,
+            onViewActivity = onViewActivity,
+            onUploadAnother = { step = UploadStep.Picker },
+        )
+    }
+}
+
+@Composable
+private fun CapturaDocumentoStep(
+    onBack: () -> Unit,
+    onCaptured: (SelectedFile) -> Unit,
+) {
+    val context = LocalContext.current
+    var pendingUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success ->
+        val uri = pendingUri
+        if (success && uri != null) {
+            onCaptured(readFileMeta(context, uri))
+        } else {
+            onBack()
+        }
+    }
+
+    // Fires the camera intent as soon as this step is entered — there's no picker UI of
+    // our own to show first, matching "just open the camera" rather than a custom scanner.
+    LaunchedEffect(Unit) {
+        val file = File(context.cacheDir, "captura_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        pendingUri = uri
+        cameraLauncher.launch(uri)
+    }
+}
+
+@Composable
+private fun SubirArchivoStep(
+    selectedPet: Pet?,
+    userFullName: String?,
+    onBack: () -> Unit,
+    onFilePicked: (SelectedFile) -> Unit,
+) {
+    val context = LocalContext.current
+
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri -> if (uri != null) onFilePicked(readFileMeta(context, uri)) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        BackHandler(onBack = onBack)
+        IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+        }
+        GreetingHeader(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            hasPets = selectedPet != null,
+            onSwitchPetClick = {},
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            UploadIllustration()
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(text = "Subir archivo", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+            val petName = selectedPet?.name ?: "tu mascota"
+            Text(
+                text = "Sube documentos, análisis, estudios, imágenes relacionados con la salud de $petName.",
+                color = SubtitleGray,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .dashedBorder(BrandGreen)
+                    .clickable { filePicker.launch("*/*") }
+                    .padding(vertical = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(Icons.Filled.CloudUpload, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(text = "Toca para seleccionar", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(text = "o arrastra tu archivo aquí", color = SubtitleGray, fontSize = 13.sp)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(text = "Formatos admitidos", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                FormatChip(Icons.Filled.Description, "PDF", Modifier.weight(1f))
+                FormatChip(Icons.Filled.Image, "Imágenes", Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun UploadIllustration() {
+    Box(modifier = Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFFF5A623),
+            modifier = Modifier.size(16.dp).align(Alignment.TopStart),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(18.dp).align(Alignment.TopEnd),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(14.dp).align(Alignment.BottomStart),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFFF5A623),
+            modifier = Modifier.size(16.dp).align(Alignment.BottomEnd),
+        )
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(IllustrationBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Folder, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(44.dp))
+        }
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.BottomEnd)
+                .clip(CircleShape)
+                .background(BrandGreen),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.CloudUpload, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun FormatChip(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = ChipBg,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = label, color = BrandGreen, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun ArchivoSeleccionadoStep(
+    selectedPet: Pet?,
+    userFullName: String?,
+    file: SelectedFile,
+    onBack: () -> Unit,
+    onUploaded: () -> Unit,
+    viewModel: FilesViewModel,
+) {
+    val uploadState by viewModel.uploadState.collectAsState()
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    var showTypeDialog by remember { mutableStateOf(false) }
+    var documentType by remember { mutableStateOf<DocumentTypeOption?>(null) }
+    var validationError by remember { mutableStateOf<String?>(null) }
+
+    // FilesViewModel is Activity-scoped (no Navigation-Compose back stack), so a prior
+    // successful upload can still be sitting in uploadState when this screen re-enters.
+    // Resetting it here races the effect below (collectAsState's initial value may
+    // already have latched onto the stale Success), so consumedInitialState instead
+    // always ignores the first firing regardless of what it sees, and only acts on a
+    // later, genuine Success from this screen's own upload.
+    LaunchedEffect(Unit) {
+        viewModel.resetUploadState()
+    }
+    var consumedInitialState by remember { mutableStateOf(false) }
+    LaunchedEffect(uploadState) {
+        if (!consumedInitialState) {
+            consumedInitialState = true
+            return@LaunchedEffect
+        }
+        if (uploadState is UploadDocumentUiState.Success) {
+            onUploaded()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        BackHandler(onBack = onBack)
+        IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+        }
+        GreetingHeader(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            hasPets = selectedPet != null,
+            onSwitchPetClick = {},
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = "Archivo seleccionado", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Box(
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFF5F5F5)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(iconForMimeType(file.mimeType), contentDescription = null, tint = fileIconTint(file.mimeType), modifier = Modifier.size(40.dp))
+                }
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = BrandGreen,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(Color.White, CircleShape),
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = file.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, textAlign = TextAlign.Center)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    TypeSelectorRow(
+                        icon = Icons.Filled.Category,
+                        title = "Tipo de documento*",
+                        value = documentType?.label ?: "Selecciona un tipo",
+                        onClick = { showTypeDialog = true },
+                    )
+                    HorizontalDivider(color = CardBorder)
+                    InfoRow(Icons.AutoMirrored.Filled.InsertDriveFile, "Tipo de archivo", fileTypeLabel(file.mimeType))
+                    HorizontalDivider(color = CardBorder)
+                    InfoRow(Icons.Filled.CalendarToday, "Fecha de modificación", formatLastModified(file.lastModifiedMillis))
+                    HorizontalDivider(color = CardBorder)
+                    InfoRow(Icons.Filled.SdStorage, "Tamaño", formatFileSize(file.sizeBytes))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            val apiErrorMessage = (uploadState as? UploadDocumentUiState.Error)?.message
+            if (validationError != null || apiErrorMessage != null) {
+                Text(
+                    text = validationError ?: apiErrorMessage!!,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            val isUploading = uploadState is UploadDocumentUiState.Loading
+            Button(
+                onClick = {
+                    if (documentType == null) {
+                        validationError = "Selecciona un tipo de documento."
+                    } else {
+                        validationError = null
+                        showConfirmDialog = true
+                    }
+                },
+                enabled = !isUploading && selectedPet != null,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                if (isUploading) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+                } else {
+                    Text(text = "Continuar", fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    if (showConfirmDialog) {
+        val petName = selectedPet?.name ?: "tu mascota"
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Confirmar archivo y mascota") },
+            text = {
+                Text("Se guardará \"${file.name}\" (${documentType?.label}) en el historial de $petName. Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmDialog = false
+                        val petId = selectedPet?.id
+                        val type = documentType
+                        if (petId != null && type != null) {
+                            viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType, type.apiValue)
+                        }
+                    },
+                ) { Text("Guardar", color = BrandGreen) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) { Text("Cancelar") }
+            },
+        )
+    }
+
+    if (showTypeDialog) {
+        AlertDialog(
+            onDismissRequest = { showTypeDialog = false },
+            title = { Text("Tipo de documento") },
+            text = {
+                Column {
+                    DocumentTypeOption.entries.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    documentType = option
+                                    showTypeDialog = false
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = documentType == option, onClick = {
+                                documentType = option
+                                showTypeDialog = false
+                            })
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(option.label, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTypeDialog = false }) { Text("Cerrar") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun DocumentoGuardadoStep(
+    selectedPet: Pet?,
+    userFullName: String?,
+    file: SelectedFile,
+    onViewActivity: () -> Unit,
+    onUploadAnother: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        GreetingHeader(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            hasPets = selectedPet != null,
+            onSwitchPetClick = {},
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            SuccessIllustration()
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(text = "Listo", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(6.dp))
+            val petName = selectedPet?.name ?: "tu mascota"
+            Text(
+                text = "Se guardó el documento en la historia de $petName.",
+                color = SubtitleGray,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    InfoRow(Icons.Filled.Description, "Documento guardado", file.name)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+            Button(
+                onClick = onViewActivity,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Text(text = "Ver en actividad", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onUploadAnother,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                Text(text = "Subir otro archivo", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun SuccessIllustration() {
+    Box(modifier = Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFFF5A623),
+            modifier = Modifier.size(16.dp).align(Alignment.TopStart),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(18.dp).align(Alignment.TopEnd),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(14.dp).align(Alignment.BottomStart),
+        )
+        Icon(
+            Icons.Filled.AutoAwesome,
+            contentDescription = null,
+            tint = Color(0xFFF5A623),
+            modifier = Modifier.size(16.dp).align(Alignment.BottomEnd),
+        )
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(IllustrationBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Folder, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(44.dp))
+        }
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.BottomEnd)
+                .clip(CircleShape)
+                .background(BrandGreen),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(icon: ImageVector, title: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(14.dp))
+        Column {
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = value, color = SubtitleGray, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun TypeSelectorRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = value, color = SubtitleGray, fontSize = 13.sp)
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
+    }
+}
+
+private fun Modifier.dashedBorder(color: Color, strokeWidth: androidx.compose.ui.unit.Dp = 1.5.dp): Modifier =
+    this.drawBehind {
+        drawRoundRect(
+            color = color,
+            style = Stroke(
+                width = strokeWidth.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f),
+            ),
+            cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx()),
+        )
+    }
+
+private fun readFileMeta(context: Context, uri: Uri): SelectedFile {
+    var name = "archivo"
+    var size = 0L
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+        if (cursor.moveToFirst()) {
+            if (nameIdx >= 0) cursor.getString(nameIdx)?.let { name = it }
+            if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) size = cursor.getLong(sizeIdx)
+        }
+    }
+    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+    val lastModified = try {
+        context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val idx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            if (idx >= 0 && cursor.moveToFirst() && !cursor.isNull(idx)) cursor.getLong(idx) else null
+        }
+    } catch (e: Exception) {
+        null
+    }
+    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+    return SelectedFile(uri, bytes, name, mimeType, size, lastModified)
+}
+
+private fun iconForMimeType(mimeType: String): ImageVector = when {
+    mimeType == "application/pdf" -> Icons.Filled.PictureAsPdf
+    mimeType.startsWith("image/") -> Icons.Filled.Image
+    mimeType.startsWith("video/") -> Icons.Filled.Videocam
+    else -> Icons.AutoMirrored.Filled.InsertDriveFile
+}
+
+private fun fileIconTint(mimeType: String): Color = when {
+    mimeType == "application/pdf" -> Color(0xFFE53935)
+    mimeType.startsWith("image/") -> Color(0xFF3B82F6)
+    mimeType.startsWith("video/") -> Color(0xFF8E24AA)
+    else -> BrandGreen
+}
+
+private fun fileTypeLabel(mimeType: String): String = when {
+    mimeType == "application/pdf" -> "PDF"
+    mimeType.startsWith("image/") -> "Imagen (${mimeType.substringAfter('/').uppercase()})"
+    mimeType.startsWith("video/") -> "Video (${mimeType.substringAfter('/').uppercase()})"
+    else -> mimeType
+}
+
+private fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0) return "—"
+    val kb = bytes / 1024.0
+    val mb = kb / 1024.0
+    val df = DecimalFormat("0.0")
+    return when {
+        mb >= 1.0 -> "${df.format(mb)} MB"
+        kb >= 1.0 -> "${df.format(kb)} KB"
+        else -> "$bytes B"
+    }
+}
+
+private fun formatLastModified(millis: Long?): String {
+    if (millis == null) return "—"
+    val dateTime = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
+    val months = listOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+    val datePart = "${dateTime.dayOfMonth} ${months[dateTime.monthValue - 1]} ${dateTime.year}"
+    val timePart = dateTime.format(DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()))
+    return "$datePart - $timePart"
+}

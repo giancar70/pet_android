@@ -1,0 +1,80 @@
+package com.petdrive.app.features.main
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.petdrive.app.core.model.Pet
+
+private val AvatarBackground = Color(0xFFE3E3E3)
+private val StatusDotGreen = Color(0xFF4CAF50)
+
+@Composable
+fun PetAvatar(
+    pet: Pet?,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
+    showStatusDot: Boolean = true,
+) {
+    Box(modifier = modifier.size(size)) {
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(AvatarBackground),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Cache-busted with updatedAt: the stored file is now named after the pet's own
+            // id (see backend's pet_image_upload_to), so re-uploading a new photo keeps the
+            // exact same URL -- without this, Coil would keep serving the old cached bitmap.
+            val imageUrl = pet?.image?.let { url -> pet.updatedAt?.let { "$url?v=$it" } ?: url }
+            if (imageUrl != null) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = null,
+                    // Crop -- fills the whole circle edge-to-edge instead of letterboxing
+                    // a non-square photo with gaps of AvatarBackground showing through.
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(size)
+                        .clip(CircleShape),
+                )
+            } else {
+                Icon(
+                    Icons.Filled.Pets,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(size / 2),
+                )
+            }
+        }
+        if (showStatusDot) {
+            Box(
+                modifier = Modifier
+                    .size(size / 4.5f)
+                    .align(Alignment.BottomEnd)
+                    .clip(CircleShape)
+                    .background(Color.White),
+            )
+            Box(
+                modifier = Modifier
+                    .size(size / 6f)
+                    .align(Alignment.BottomEnd)
+                    .clip(CircleShape)
+                    .background(StatusDotGreen),
+            )
+        }
+    }
+}
