@@ -24,8 +24,6 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -60,8 +58,6 @@ import com.petdrive.app.core.model.Pet
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
-import com.petdrive.app.features.main.dueStatus
-import com.petdrive.app.features.main.needsRenewal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -84,9 +80,6 @@ fun RegistrarVacunaScreen(
     onBack: () -> Unit,
     onFinish: () -> Unit,
     onViewActivity: () -> Unit,
-    // Set when opened via a "Renovar" tap from an expired dose's detail screen, so that
-    // dose starts out checked in the "Reemplaza a" list below (still editable/removable).
-    preselectedReplaceId: String? = null,
     viewModel: VaccinesViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<VacunaStep>(VacunaStep.Form) }
@@ -97,7 +90,6 @@ fun RegistrarVacunaScreen(
             userFullName = userFullName,
             onBack = onBack,
             onSaved = { step = VacunaStep.Success(it) },
-            preselectedReplaceId = preselectedReplaceId,
             viewModel = viewModel,
         )
         is VacunaStep.Success -> VacunaSuccessContent(
@@ -116,11 +108,9 @@ private fun VacunaFormContent(
     userFullName: String?,
     onBack: () -> Unit,
     onSaved: (SavedVacuna) -> Unit,
-    preselectedReplaceId: String?,
     viewModel: VaccinesViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
-    val listState by viewModel.listState.collectAsState()
 
     var vacunaAplicada by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(LocalDate.now()) }
@@ -130,16 +120,6 @@ private fun VacunaFormContent(
     var showDatePicker by remember { mutableStateOf(false) }
     var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var selectedReplaces by remember { mutableStateOf(setOfNotNull(preselectedReplaceId)) }
-
-    LaunchedEffect(selectedPet?.id) {
-        selectedPet?.id?.let { viewModel.fetchVacunas(it) }
-    }
-    // Only doses due soon (within a week) or already overdue, still active, are
-    // offered -- a dose already replaced by something else shouldn't be offered again.
-    val expiredDoses = (listState as? VaccinesListUiState.Loaded)?.doses.orEmpty().filter {
-        it.status != "replaced" && needsRenewal(it.nextDueOn)
-    }
 
     // Recomputed every recomposition (cheap) so it reacts immediately to either date
     // picker without a separate effect -- próxima vacunación is optional, so there's
@@ -390,44 +370,6 @@ private fun VacunaFormContent(
                 )
             }
 
-            if (expiredDoses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                FormCard {
-                    Text(text = "Reemplaza a", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "  (opcional) — marca las vacunas vencidas que esta reemplaza", color = SubtitleGray, fontSize = 10.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    expiredDoses.forEach { dose ->
-                        val checked = dose.id in selectedReplaces
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedReplaces = if (checked) selectedReplaces - dose.id else selectedReplaces + dose.id
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { isChecked ->
-                                    selectedReplaces = if (isChecked) selectedReplaces + dose.id else selectedReplaces - dose.id
-                                },
-                                colors = CheckboxDefaults.colors(checkedColor = BrandGreen),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Column {
-                                Text(text = dose.vaccine, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                Text(
-                                    text = dueStatus(dose.nextDueOn)?.subtitle.orEmpty(),
-                                    color = SubtitleGray,
-                                    fontSize = 12.sp,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateVaccineDoseUiState.Error)?.message
             if (validationError != null || apiErrorMessage != null) {
@@ -456,7 +398,6 @@ private fun VacunaFormContent(
                                 nextDueOnIso = nextDueDate?.toString(),
                                 lotNumber = lote,
                                 notes = observaciones,
-                                replaces = selectedReplaces.toList(),
                             )
                         }
                     }

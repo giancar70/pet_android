@@ -10,14 +10,14 @@ plugins {
 
 android {
     namespace = "com.petdrive.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.petdrive.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 3
-        versionName = "0.0.3"
+        targetSdk = 36
+        versionCode = 4
+        versionName = "0.0.4"
     }
 
     buildTypes {

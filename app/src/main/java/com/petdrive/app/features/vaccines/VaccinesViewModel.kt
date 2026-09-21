@@ -101,7 +101,6 @@ class VaccinesViewModel : ViewModel() {
         nextDueOnIso: String?,
         lotNumber: String?,
         notes: String?,
-        replaces: List<String> = emptyList(),
     ) {
         _createState.value = CreateVaccineDoseUiState.Loading
         viewModelScope.launch {
@@ -112,18 +111,12 @@ class VaccinesViewModel : ViewModel() {
                     nextDueOn = nextDueOnIso,
                     lotNumber = lotNumber?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
-                    replaces = replaces,
                 )
                 val dose: VaccineDose = ApiClient.post(ApiEndpoints.petVaccineDoses(petId), request)
                 _createState.value = CreateVaccineDoseUiState.Success(dose)
-                // Updates just this block locally instead of refetching the whole list --
-                // also flips any explicitly-replaced doses' local status so they stop
-                // showing as overdue immediately, without waiting for a refetch.
+                // Updates just this block locally instead of refetching the whole list.
                 (_listState.value as? VaccinesListUiState.Loaded)?.let {
-                    val updated = it.doses.map { existing ->
-                        if (existing.id in replaces) existing.copy(status = "replaced") else existing
-                    }
-                    _listState.value = VaccinesListUiState.Loaded(listOf(dose) + updated)
+                    _listState.value = VaccinesListUiState.Loaded(listOf(dose) + it.doses)
                 }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateVaccineDoseUiState.Error(e.errorMessage)

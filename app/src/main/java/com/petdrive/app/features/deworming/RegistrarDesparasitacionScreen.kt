@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -64,8 +62,6 @@ import com.petdrive.app.core.model.Pet
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
-import com.petdrive.app.features.main.dueStatus
-import com.petdrive.app.features.main.needsRenewal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -92,9 +88,6 @@ fun RegistrarDesparasitacionScreen(
     onBack: () -> Unit,
     onFinish: () -> Unit,
     onViewActivity: () -> Unit,
-    // Set when opened via a "Renovar" tap from an expired application's detail screen,
-    // so that application starts out checked in the "Reemplaza a" list (still editable).
-    preselectedReplaceId: String? = null,
     viewModel: DewormingViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<DesparasitacionStep>(DesparasitacionStep.Form) }
@@ -105,7 +98,6 @@ fun RegistrarDesparasitacionScreen(
             userFullName = userFullName,
             onBack = onBack,
             onSaved = { step = DesparasitacionStep.Success },
-            preselectedReplaceId = preselectedReplaceId,
             viewModel = viewModel,
         )
         is DesparasitacionStep.Success -> DesparasitacionSuccessContent(
@@ -124,11 +116,9 @@ private fun DesparasitacionFormContent(
     userFullName: String?,
     onBack: () -> Unit,
     onSaved: () -> Unit,
-    preselectedReplaceId: String?,
     viewModel: DewormingViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
-    val listState by viewModel.listState.collectAsState()
 
     var tipo by remember { mutableStateOf(DewormingType.INTERNAL) }
     var date by remember { mutableStateOf(LocalDate.now()) }
@@ -138,16 +128,6 @@ private fun DesparasitacionFormContent(
     var observaciones by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var selectedReplaces by remember { mutableStateOf(setOfNotNull(preselectedReplaceId)) }
-
-    LaunchedEffect(selectedPet?.id) {
-        selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
-    }
-    // Only applications due soon (within a week) or already overdue, still active, are
-    // offered -- one already replaced by something else shouldn't be offered again.
-    val expiredApplications = (listState as? DewormingListUiState.Loaded)?.applications.orEmpty().filter {
-        it.status != "replaced" && needsRenewal(it.nextDueOn)
-    }
 
     // DewormingViewModel is Activity-scoped (no Navigation-Compose back stack), so a
     // prior success can still be sitting in createState when this screen re-enters —
@@ -357,45 +337,6 @@ private fun DesparasitacionFormContent(
                 )
             }
 
-            if (expiredApplications.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                FormCard {
-                    Text(text = "Reemplaza a", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "  (opcional) — marca las desparasitaciones vencidas que esta reemplaza", color = SubtitleGray, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    expiredApplications.forEach { application ->
-                        val checked = application.id in selectedReplaces
-                        val title = application.productName?.takeIf { it.isNotBlank() } ?: "Desparasitación"
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedReplaces = if (checked) selectedReplaces - application.id else selectedReplaces + application.id
-                                }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { isChecked ->
-                                    selectedReplaces = if (isChecked) selectedReplaces + application.id else selectedReplaces - application.id
-                                },
-                                colors = CheckboxDefaults.colors(checkedColor = BrandGreen),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Column {
-                                Text(text = title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                Text(
-                                    text = dueStatus(application.nextDueOn)?.subtitle.orEmpty(),
-                                    color = SubtitleGray,
-                                    fontSize = 12.sp,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateDewormingUiState.Error)?.message
             if (validationError != null || apiErrorMessage != null) {
@@ -431,7 +372,6 @@ private fun DesparasitacionFormContent(
                                 durationMonths = duracionMeses?.toInt(),
                                 productName = producto,
                                 notes = observaciones,
-                                replaces = selectedReplaces.toList(),
                             )
                         }
                     }

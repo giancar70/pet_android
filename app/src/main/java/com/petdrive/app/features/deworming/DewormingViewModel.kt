@@ -103,7 +103,6 @@ class DewormingViewModel : ViewModel() {
         durationMonths: Int?,
         productName: String?,
         notes: String?,
-        replaces: List<String> = emptyList(),
     ) {
         _createState.value = CreateDewormingUiState.Loading
         viewModelScope.launch {
@@ -115,19 +114,13 @@ class DewormingViewModel : ViewModel() {
                     durationMonths = durationMonths,
                     productName = productName?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
-                    replaces = replaces,
                 )
                 val application: DewormingApplication =
                     ApiClient.post(ApiEndpoints.petDewormingApplications(petId), request)
                 _createState.value = CreateDewormingUiState.Success(application)
-                // Updates just this block locally instead of refetching the whole list --
-                // also flips any explicitly-replaced applications' local status so they
-                // stop showing as overdue immediately, without waiting for a refetch.
+                // Updates just this block locally instead of refetching the whole list.
                 (_listState.value as? DewormingListUiState.Loaded)?.let {
-                    val updated = it.applications.map { existing ->
-                        if (existing.id in replaces) existing.copy(status = "replaced") else existing
-                    }
-                    _listState.value = DewormingListUiState.Loaded(listOf(application) + updated)
+                    _listState.value = DewormingListUiState.Loaded(listOf(application) + it.applications)
                 }
             } catch (e: ApiError.ServerError) {
                 _createState.value = CreateDewormingUiState.Error(e.errorMessage)

@@ -128,10 +128,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showRegistrarIncidencia by remember { mutableStateOf(false) }
     var showAnadirVacuna by remember { mutableStateOf(false) }
     var showAnadirDesparasitacion by remember { mutableStateOf(false) }
-    // Set by "Renovar" on an expired dose/application's detail screen so the new
-    // registration screen opens with that record pre-checked in "Reemplaza a".
-    var renovarVacunaDoseId by remember { mutableStateOf<String?>(null) }
-    var renovarDesparasitacionApplicationId by remember { mutableStateOf<String?>(null) }
     var showRegistrarConsulta by remember { mutableStateOf(false) }
     var showSubirArchivo by remember { mutableStateOf(false) }
     var showCapturarDocumento by remember { mutableStateOf(false) }
@@ -219,7 +215,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     doseId = id,
                     onBack = { activityDetail = null },
                     onRenovar = {
-                        renovarVacunaDoseId = id
                         activityDetail = null
                         showAnadirVacuna = true
                     },
@@ -230,7 +225,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     applicationId = id,
                     onBack = { activityDetail = null },
                     onRenovar = {
-                        renovarDesparasitacionApplicationId = id
                         activityDetail = null
                         showAnadirDesparasitacion = true
                     },
@@ -281,14 +275,12 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             RegistrarVacunaScreen(
                 selectedPet = selectedPet,
                 userFullName = userFullName,
-                onBack = { showAnadirVacuna = false; renovarVacunaDoseId = null },
-                onFinish = { showAnadirVacuna = false; renovarVacunaDoseId = null },
+                onBack = { showAnadirVacuna = false },
+                onFinish = { showAnadirVacuna = false },
                 onViewActivity = {
                     showAnadirVacuna = false
-                    renovarVacunaDoseId = null
                     currentTab = MainTab.ACTIVIDAD
                 },
-                preselectedReplaceId = renovarVacunaDoseId,
             )
             return
         }
@@ -296,12 +288,10 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             RegistrarDesparasitacionScreen(
                 selectedPet = selectedPet,
                 userFullName = userFullName,
-                onBack = { showAnadirDesparasitacion = false; renovarDesparasitacionApplicationId = null },
-                onFinish = { showAnadirDesparasitacion = false; renovarDesparasitacionApplicationId = null },
-                preselectedReplaceId = renovarDesparasitacionApplicationId,
+                onBack = { showAnadirDesparasitacion = false },
+                onFinish = { showAnadirDesparasitacion = false },
                 onViewActivity = {
                     showAnadirDesparasitacion = false
-                    renovarDesparasitacionApplicationId = null
                     currentTab = MainTab.ACTIVIDAD
                 },
             )
@@ -416,12 +406,10 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             },
             onAnadirVacuna = {
                 dismiss()
-                renovarVacunaDoseId = null
                 showAnadirVacuna = true
             },
             onAnadirDesparasitacion = {
                 dismiss()
-                renovarDesparasitacionApplicationId = null
                 showAnadirDesparasitacion = true
             },
             onAnadirRecordatorio = {
@@ -486,8 +474,8 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onSwitchPetClick = { showPetSwitcher = true },
                 onAddPetClick = { showAddPet = true },
                 onMoreClick = { showMoreOptions = true },
-                onAnadirVacuna = { renovarVacunaDoseId = null; showAnadirVacuna = true },
-                onAnadirDesparasitacion = { renovarDesparasitacionApplicationId = null; showAnadirDesparasitacion = true },
+                onAnadirVacuna = { showAnadirVacuna = true },
+                onAnadirDesparasitacion = { showAnadirDesparasitacion = true },
                 onRegistrarConsulta = { showRegistrarConsulta = true },
                 onRegistrarIncidencia = { showRegistrarIncidencia = true },
                 onAnadirRecordatorio = { showAnadirRecordatorio = true },

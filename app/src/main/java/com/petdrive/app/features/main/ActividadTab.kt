@@ -166,6 +166,9 @@ private data class ActivityItem(
     val iconTint: Color,
     val title: String,
     val subtitle: String,
+    // Only set for VACCINE/DEWORMING items -- "replaced" means a newer dose/
+    // application of the same vaccine/type superseded this one, shown as "Renovado".
+    val status: String? = null,
 )
 
 @Composable
@@ -217,6 +220,7 @@ private fun ActivityFeed(
                             iconTint = BrandGreen,
                             title = "Vacuna - ${dose.vaccine}",
                             subtitle = "Aplicada el ${spanishShortDate(instant)}",
+                            status = dose.status,
                         ),
                     )
                 }
@@ -236,6 +240,7 @@ private fun ActivityFeed(
                             iconTint = BrandGreen,
                             title = title,
                             subtitle = subtitle,
+                            status = application.status,
                         ),
                     )
                 }
@@ -381,14 +386,36 @@ private fun ActivityRow(item: ActivityItem, onClick: (ActivityItem) -> Unit) {
         ) {
             Icon(item.icon, contentDescription = null, tint = item.iconTint, modifier = Modifier.size(22.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(text = relativeLabel(item.instant), color = SubtitleGray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(text = item.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(text = item.subtitle, color = SubtitleGray, fontSize = 12.sp)
             }
+            if (item.status == "replaced") {
+                Spacer(modifier = Modifier.width(8.dp))
+                RenovadoPill()
+            }
         }
+    }
+}
+
+// A vaccine/deworming record superseded by a newer one of the same vaccine/type --
+// still visible in Actividad's full history, but clearly marked as no longer current.
+@Composable
+private fun RenovadoPill() {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = Color(0xFFEFEFEF),
+    ) {
+        Text(
+            text = "Renovado",
+            color = Color(0xFF666666),
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+        )
     }
 }
 

@@ -10,9 +10,6 @@ data class CreateVaccineDoseRequest(
     @SerialName("next_due_on") val nextDueOn: String? = null,
     @SerialName("lot_number") val lotNumber: String? = null,
     val notes: String? = null,
-    // IDs of this pet's other (typically expired) doses the user explicitly marked
-    // as replaced by this new one -- see RegistrarVacunaScreen.
-    val replaces: List<String> = emptyList(),
 )
 
 @Serializable

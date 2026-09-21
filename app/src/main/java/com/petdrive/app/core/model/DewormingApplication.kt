@@ -11,9 +11,6 @@ data class CreateDewormingApplicationRequest(
     @SerialName("duration_months") val durationMonths: Int? = null,
     @SerialName("product_name") val productName: String? = null,
     val notes: String? = null,
-    // IDs of this pet's other (typically expired) applications the user explicitly
-    // marked as replaced by this new one -- see RegistrarDesparasitacionScreen.
-    val replaces: List<String> = emptyList(),
 )
 
 @Serializable
