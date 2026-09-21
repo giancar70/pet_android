@@ -249,7 +249,7 @@ private fun DueStatusPill(label: String, color: Color) {
     }
 }
 
-internal data class DueInfo(val subtitle: String, val pillLabel: String, val isOverdue: Boolean)
+internal data class DueInfo(val subtitle: String, val pillLabel: String, val isOverdue: Boolean, val daysUntil: Long)
 
 // "Vence en N días" while there's still time, "Venció hace N días" once the date has
 // passed -- null when there's no próxima vacunación / próxima dosis set (nothing to
@@ -263,11 +263,16 @@ internal fun dueStatus(nextDueOnIso: String?): DueInfo? {
     }
     val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), dueDate)
     return if (daysUntil < 0) {
-        DueInfo(subtitle = "Venció hace ${-daysUntil} días", pillLabel = "Vencido", isOverdue = true)
+        DueInfo(subtitle = "Venció hace ${-daysUntil} días", pillLabel = "Vencido", isOverdue = true, daysUntil = daysUntil)
     } else {
-        DueInfo(subtitle = "Vence en $daysUntil días", pillLabel = "Al día", isOverdue = false)
+        DueInfo(subtitle = "Vence en $daysUntil días", pillLabel = "Al día", isOverdue = false, daysUntil = daysUntil)
     }
 }
+
+// Renewal (the "Renovar" button, and the "Reemplaza a" checklist offered when
+// registering a new dose/application) is offered earlier than the "Vencido" pill --
+// once something is due within a week, not only once it's actually overdue.
+internal fun needsRenewal(nextDueOnIso: String?): Boolean = (dueStatus(nextDueOnIso)?.daysUntil ?: Long.MAX_VALUE) <= 7
 
 @Composable
 private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit, canEdit: Boolean, onOpen: (String) -> Unit) {

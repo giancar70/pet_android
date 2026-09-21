@@ -19,7 +19,7 @@
          one continuous screen instead of a visible green-to-white cut. -->
     <style name="Theme.PetProjectAPP.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@android:color/white</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.PetProjectAPP</item>
     </style>
 </resources>

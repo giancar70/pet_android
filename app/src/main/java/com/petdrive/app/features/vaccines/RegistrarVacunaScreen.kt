@@ -61,6 +61,7 @@ import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
 import com.petdrive.app.features.main.dueStatus
+import com.petdrive.app.features.main.needsRenewal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -83,6 +84,9 @@ fun RegistrarVacunaScreen(
     onBack: () -> Unit,
     onFinish: () -> Unit,
     onViewActivity: () -> Unit,
+    // Set when opened via a "Renovar" tap from an expired dose's detail screen, so that
+    // dose starts out checked in the "Reemplaza a" list below (still editable/removable).
+    preselectedReplaceId: String? = null,
     viewModel: VaccinesViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<VacunaStep>(VacunaStep.Form) }
@@ -93,6 +97,7 @@ fun RegistrarVacunaScreen(
             userFullName = userFullName,
             onBack = onBack,
             onSaved = { step = VacunaStep.Success(it) },
+            preselectedReplaceId = preselectedReplaceId,
             viewModel = viewModel,
         )
         is VacunaStep.Success -> VacunaSuccessContent(
@@ -111,6 +116,7 @@ private fun VacunaFormContent(
     userFullName: String?,
     onBack: () -> Unit,
     onSaved: (SavedVacuna) -> Unit,
+    preselectedReplaceId: String?,
     viewModel: VaccinesViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
@@ -124,15 +130,15 @@ private fun VacunaFormContent(
     var showDatePicker by remember { mutableStateOf(false) }
     var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var selectedReplaces by remember { mutableStateOf(setOf<String>()) }
+    var selectedReplaces by remember { mutableStateOf(setOfNotNull(preselectedReplaceId)) }
 
     LaunchedEffect(selectedPet?.id) {
         selectedPet?.id?.let { viewModel.fetchVacunas(it) }
     }
-    // Only expired, still-active doses are offered -- a dose already replaced by
-    // something else shouldn't be offered again.
+    // Only doses due soon (within a week) or already overdue, still active, are
+    // offered -- a dose already replaced by something else shouldn't be offered again.
     val expiredDoses = (listState as? VaccinesListUiState.Loaded)?.doses.orEmpty().filter {
-        it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true
+        it.status != "replaced" && needsRenewal(it.nextDueOn)
     }
 
     // Recomputed every recomposition (cheap) so it reacts immediately to either date

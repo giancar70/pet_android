@@ -65,6 +65,7 @@ import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
 import com.petdrive.app.features.main.dueStatus
+import com.petdrive.app.features.main.needsRenewal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -91,6 +92,9 @@ fun RegistrarDesparasitacionScreen(
     onBack: () -> Unit,
     onFinish: () -> Unit,
     onViewActivity: () -> Unit,
+    // Set when opened via a "Renovar" tap from an expired application's detail screen,
+    // so that application starts out checked in the "Reemplaza a" list (still editable).
+    preselectedReplaceId: String? = null,
     viewModel: DewormingViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<DesparasitacionStep>(DesparasitacionStep.Form) }
@@ -101,6 +105,7 @@ fun RegistrarDesparasitacionScreen(
             userFullName = userFullName,
             onBack = onBack,
             onSaved = { step = DesparasitacionStep.Success },
+            preselectedReplaceId = preselectedReplaceId,
             viewModel = viewModel,
         )
         is DesparasitacionStep.Success -> DesparasitacionSuccessContent(
@@ -119,6 +124,7 @@ private fun DesparasitacionFormContent(
     userFullName: String?,
     onBack: () -> Unit,
     onSaved: () -> Unit,
+    preselectedReplaceId: String?,
     viewModel: DewormingViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
@@ -132,15 +138,15 @@ private fun DesparasitacionFormContent(
     var observaciones by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var selectedReplaces by remember { mutableStateOf(setOf<String>()) }
+    var selectedReplaces by remember { mutableStateOf(setOfNotNull(preselectedReplaceId)) }
 
     LaunchedEffect(selectedPet?.id) {
         selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
     }
-    // Only expired, still-active applications are offered -- one already replaced by
-    // something else shouldn't be offered again.
+    // Only applications due soon (within a week) or already overdue, still active, are
+    // offered -- one already replaced by something else shouldn't be offered again.
     val expiredApplications = (listState as? DewormingListUiState.Loaded)?.applications.orEmpty().filter {
-        it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true
+        it.status != "replaced" && needsRenewal(it.nextDueOn)
     }
 
     // DewormingViewModel is Activity-scoped (no Navigation-Compose back stack), so a

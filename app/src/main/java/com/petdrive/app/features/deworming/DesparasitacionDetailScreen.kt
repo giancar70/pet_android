@@ -17,8 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -47,6 +49,7 @@ import com.petdrive.app.core.model.DewormingApplication
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.util.relativeDateLabel
 import com.petdrive.app.features.main.GreetingHeader
+import com.petdrive.app.features.main.needsRenewal
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -59,6 +62,7 @@ fun DesparasitacionDetailScreen(
     userFullName: String?,
     applicationId: String,
     onBack: () -> Unit,
+    onRenovar: () -> Unit = {},
     viewModel: DewormingViewModel = viewModel(),
 ) {
     val detailState by viewModel.detailState.collectAsState()
@@ -112,6 +116,26 @@ fun DesparasitacionDetailScreen(
                     fontSize = 14.sp,
                 )
                 is DewormingDetailUiState.Loaded -> DesparasitacionDetailCard(state.application)
+            }
+
+            val loadedApplication = (detailState as? DewormingDetailUiState.Loaded)?.application
+            val isExpired = loadedApplication != null &&
+                loadedApplication.status != "replaced" &&
+                needsRenewal(loadedApplication.nextDueOn)
+            if (isExpired && selectedPet?.canEdit != false) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onRenovar,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                ) {
+                    Icon(Icons.Filled.Autorenew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Renovar", fontWeight = FontWeight.Bold)
+                }
             }
 
             if (deleteState is DeleteDewormingUiState.Error) {
