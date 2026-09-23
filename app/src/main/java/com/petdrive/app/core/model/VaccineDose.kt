@@ -12,6 +12,11 @@ data class CreateVaccineDoseRequest(
     val notes: String? = null,
 )
 
+// Same per-vaccine shape as CreateVaccineDoseRequest, reused as-is for
+// VaccineDoseBulkCreateFromDocumentView's request body (apps/pet/views.py).
+@Serializable
+data class RegisterVaccinesFromDocumentRequest(val vaccines: List<CreateVaccineDoseRequest>)
+
 @Serializable
 data class VaccineDose(
     val id: String,

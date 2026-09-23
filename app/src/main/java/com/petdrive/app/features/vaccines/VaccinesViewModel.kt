@@ -3,6 +3,7 @@ package com.petdrive.app.features.vaccines
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.petdrive.app.core.model.CreateVaccineDoseRequest
+import com.petdrive.app.core.model.RegisterVaccinesFromDocumentRequest
 import com.petdrive.app.core.model.VaccineDose
 import com.petdrive.app.core.network.ApiClient
 import com.petdrive.app.core.network.ApiEndpoints
@@ -38,6 +39,13 @@ sealed interface DeleteVaccineDoseUiState {
     data class Error(val message: String) : DeleteVaccineDoseUiState
 }
 
+sealed interface RegisterVaccinesUiState {
+    data object Idle : RegisterVaccinesUiState
+    data object Loading : RegisterVaccinesUiState
+    data class Success(val doses: List<VaccineDose>) : RegisterVaccinesUiState
+    data class Error(val message: String) : RegisterVaccinesUiState
+}
+
 class VaccinesViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateVaccineDoseUiState>(CreateVaccineDoseUiState.Idle)
     val createState: StateFlow<CreateVaccineDoseUiState> = _createState.asStateFlow()
@@ -50,6 +58,9 @@ class VaccinesViewModel : ViewModel() {
 
     private val _deleteState = MutableStateFlow<DeleteVaccineDoseUiState>(DeleteVaccineDoseUiState.Idle)
     val deleteState: StateFlow<DeleteVaccineDoseUiState> = _deleteState.asStateFlow()
+
+    private val _registerFromDocumentState = MutableStateFlow<RegisterVaccinesUiState>(RegisterVaccinesUiState.Idle)
+    val registerFromDocumentState: StateFlow<RegisterVaccinesUiState> = _registerFromDocumentState.asStateFlow()
 
     // Tracks which pet's list is currently held in _listState so fetchVacunas can skip
     // a redundant network call when nothing has changed (e.g. re-entering Inicio after
@@ -152,5 +163,33 @@ class VaccinesViewModel : ViewModel() {
 
     fun resetDeleteState() {
         _deleteState.value = DeleteVaccineDoseUiState.Idle
+    }
+
+    // Confirms the (possibly user-edited) list of vaccines detected on a
+    // document_type=vaccine_card Document, creating one VaccineDose per entry in a
+    // single request -- see VaccineDoseBulkCreateFromDocumentView (apps/pet/views.py).
+    fun registerFromDocument(petId: String, documentId: String, vaccines: List<CreateVaccineDoseRequest>) {
+        _registerFromDocumentState.value = RegisterVaccinesUiState.Loading
+        viewModelScope.launch {
+            try {
+                val doses: List<VaccineDose> = ApiClient.post(
+                    ApiEndpoints.petDocumentRegisterVaccines(petId, documentId),
+                    RegisterVaccinesFromDocumentRequest(vaccines = vaccines),
+                )
+                _registerFromDocumentState.value = RegisterVaccinesUiState.Success(doses)
+                // Updates just this block locally instead of refetching the whole list.
+                (_listState.value as? VaccinesListUiState.Loaded)?.let {
+                    _listState.value = VaccinesListUiState.Loaded(doses + it.doses)
+                }
+            } catch (e: ApiError.ServerError) {
+                _registerFromDocumentState.value = RegisterVaccinesUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _registerFromDocumentState.value = RegisterVaccinesUiState.Error(e.message ?: "No se pudieron registrar las vacunas.")
+            }
+        }
+    }
+
+    fun resetRegisterFromDocumentState() {
+        _registerFromDocumentState.value = RegisterVaccinesUiState.Idle
     }
 }

@@ -14,8 +14,20 @@ data class Document(
     @SerialName("mime_type") val mimeType: String? = null,
     @SerialName("ocr_status") val ocrStatus: String? = null,
     @SerialName("ocr_text") val ocrText: String? = null,
+    @SerialName("ai_extraction_status") val aiExtractionStatus: String? = null,
+    @SerialName("ai_json_result") val aiJsonResult: List<DetectedVaccine>? = null,
     @SerialName("document_date") val documentDate: String? = null,
     @SerialName("created_at") val createdAt: String,
+)
+
+// Shape returned in Document.aiJsonResult when document_type is vaccine_card -- see
+// apps/files/vaccine_extraction.py's VACCINE_EXTRACTION_PROMPT for the exact contract.
+@Serializable
+data class DetectedVaccine(
+    @SerialName("vaccine_name") val vaccineName: String? = null,
+    @SerialName("applied_on") val appliedOn: String? = null,
+    @SerialName("next_due_on") val nextDueOn: String? = null,
+    @SerialName("lot_number") val lotNumber: String? = null,
 )
 
 enum class DocumentTypeOption(val apiValue: String, val label: String) {
@@ -23,5 +35,6 @@ enum class DocumentTypeOption(val apiValue: String, val label: String) {
     INVOICE("invoice", "Factura"),
     LABWORK("labwork", "Laboratorio"),
     PRESCRIPTION("prescription", "Receta"),
+    VACCINE_CARD("vaccine_card", "Cartilla de vacunas"),
     OTHER("other", "Otros"),
 }

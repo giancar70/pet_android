@@ -33,6 +33,7 @@ object ApiEndpoints {
     fun petConsultationDetail(petId: String, consultationId: String) = "/pets/$petId/consultations/$consultationId/"
     fun petDocuments(petId: String) = "/pets/$petId/documents/"
     fun petDocumentDetail(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/"
+    fun petDocumentRegisterVaccines(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/register-vaccines/"
     fun petEventDocuments(petId: String, eventId: String) = "/pets/$petId/documents/?event=$eventId"
     fun petActivityLog(petId: String) = "/pets/$petId/activity-log/"
 }
