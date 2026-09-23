@@ -8,8 +8,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
+// platform has no default: ApiClient's Json is built with the kotlinx.serialization
+// default encodeDefaults = false, which silently omits any field left at its default
+// value -- a default here would drop `platform` from the request body entirely, and
+// the backend's DeviceTokenSerializer requires it, so every registration would 400.
 @Serializable
-private data class DeviceTokenRequest(val token: String, val platform: String = "android")
+private data class DeviceTokenRequest(val token: String, val platform: String)
 
 /// Registers/unregisters this device's FCM token for recordatorio push notifications
 /// (see the backend's apps/notifications/push.py). Every call here is best-effort and
@@ -22,7 +26,7 @@ object PushTokenManager {
     }
 
     suspend fun registerToken(token: String) {
-        runCatching { ApiClient.postForStatus(ApiEndpoints.DEVICE_TOKEN, DeviceTokenRequest(token = token)) }
+        runCatching { ApiClient.postForStatus(ApiEndpoints.DEVICE_TOKEN, DeviceTokenRequest(token = token, platform = "android")) }
     }
 
     // tokenOverride mirrors UserViewModel.logout()'s pattern for the LOGOUT call: the
