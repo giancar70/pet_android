@@ -169,6 +169,9 @@ private data class ActivityItem(
     // Only set for VACCINE/DEWORMING items -- "replaced" means a newer dose/
     // application of the same vaccine/type superseded this one, shown as "Renovado".
     val status: String? = null,
+    // Only set for VACCINE/DEWORMING items -- drives the "Al día"/"Vencido" pill
+    // for records that are still active (not yet replaced).
+    val nextDueOn: String? = null,
 )
 
 @Composable
@@ -221,6 +224,7 @@ private fun ActivityFeed(
                             title = "Vacuna - ${dose.vaccine}",
                             subtitle = "Aplicada el ${spanishShortDate(instant)}",
                             status = dose.status,
+                            nextDueOn = dose.nextDueOn,
                         ),
                     )
                 }
@@ -241,6 +245,7 @@ private fun ActivityFeed(
                             title = title,
                             subtitle = subtitle,
                             status = application.status,
+                            nextDueOn = application.nextDueOn,
                         ),
                     )
                 }
@@ -393,9 +398,20 @@ private fun ActivityRow(item: ActivityItem, onClick: (ActivityItem) -> Unit) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(text = item.subtitle, color = SubtitleGray, fontSize = 12.sp)
             }
-            if (item.status == "replaced") {
-                Spacer(modifier = Modifier.width(8.dp))
-                RenovadoPill()
+            val dueInfo = if (item.category == ActivityCategory.VACCINE || item.category == ActivityCategory.DEWORMING) {
+                dueStatus(item.nextDueOn)
+            } else {
+                null
+            }
+            when {
+                item.status == "replaced" -> {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    RenovadoPill()
+                }
+                dueInfo != null -> {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    DueStatusPill(label = dueInfo.pillLabel, color = if (dueInfo.isOverdue) IncidentRed else BrandGreen)
+                }
             }
         }
     }
@@ -412,6 +428,25 @@ private fun RenovadoPill() {
         Text(
             text = "Renovado",
             color = Color(0xFF666666),
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+        )
+    }
+}
+
+// "Al día"/"Vencido" for a still-active vaccine/deworming record -- mirrors the pill
+// style used on Inicio's PetActivityContent (DueStatusPill there is file-private).
+@Composable
+private fun DueStatusPill(label: String, color: Color) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = Color.White,
+        border = BorderStroke(1.5.dp, color),
+    ) {
+        Text(
+            text = label,
+            color = color,
             fontWeight = FontWeight.Bold,
             fontSize = 11.sp,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),

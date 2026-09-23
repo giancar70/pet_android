@@ -49,7 +49,6 @@ import com.petdrive.app.core.model.DewormingApplication
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.util.relativeDateLabel
 import com.petdrive.app.features.main.GreetingHeader
-import com.petdrive.app.features.main.needsRenewal
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -119,10 +118,10 @@ fun DesparasitacionDetailScreen(
             }
 
             val loadedApplication = (detailState as? DewormingDetailUiState.Loaded)?.application
-            val isExpired = loadedApplication != null &&
-                loadedApplication.status != "replaced" &&
-                needsRenewal(loadedApplication.nextDueOn)
-            if (isExpired && selectedPet?.canEdit != false) {
+            // Unlike vaccines, "Renovar" here isn't gated to being due soon -- always offered
+            // for an active (not yet superseded) record, per explicit request.
+            val canRenovar = loadedApplication != null && loadedApplication.status != "replaced"
+            if (canRenovar && selectedPet?.canEdit != false) {
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(
                     onClick = onRenovar,

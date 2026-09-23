@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +63,7 @@ import com.petdrive.app.core.model.Pet
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
+import com.petdrive.app.features.main.dueStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -69,6 +71,9 @@ import java.time.ZoneOffset
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
 private val CardBorder = Color(0xFFEFEFF4)
+
+private fun formatDdMmYyyy(date: LocalDate): String =
+    "%02d/%02d/%04d".format(date.dayOfMonth, date.monthValue, date.year)
 
 private sealed interface DesparasitacionStep {
     data object Form : DesparasitacionStep
@@ -119,6 +124,7 @@ private fun DesparasitacionFormContent(
     viewModel: DewormingViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
+    val listState by viewModel.listState.collectAsState()
 
     var tipo by remember { mutableStateOf(DewormingType.INTERNAL) }
     var date by remember { mutableStateOf(LocalDate.now()) }
@@ -128,6 +134,42 @@ private fun DesparasitacionFormContent(
     var observaciones by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    var pendingWarningDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    LaunchedEffect(selectedPet?.id) {
+        selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
+    }
+
+    // The nearest not-yet-due "próxima desparasitación" already on record, regardless of
+    // type -- the backend doesn't expose deworming_type on read, so this can't be scoped
+    // to the same type as the one being registered. Used to warn before creating a second
+    // one ahead of schedule (see the confirmation dialog below).
+    val upcomingDueDate: LocalDate? = (listState as? DewormingListUiState.Loaded)?.applications
+        ?.filter { it.status == "active" }
+        ?.mapNotNull { app ->
+            val nextDueOn = app.nextDueOn ?: return@mapNotNull null
+            val info = dueStatus(nextDueOn) ?: return@mapNotNull null
+            if (info.isOverdue) null else runCatching { LocalDate.parse(nextDueOn) }.getOrNull()
+        }
+        ?.minOrNull()
+
+    fun submit() {
+        val petId = selectedPet?.id ?: return
+        val duracionMeses = when (duracion) {
+            Duracion.OneMonth -> 1L
+            Duracion.ThreeMonths -> 3L
+            Duracion.Custom -> duracionMesesCustom.toLongOrNull()
+        }
+        viewModel.createDesparasitacion(
+            petId = petId,
+            dewormingType = tipo.apiValue,
+            appliedOnIso = date.toString(),
+            nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
+            durationMonths = duracionMeses?.toInt(),
+            productName = producto,
+            notes = observaciones,
+        )
+    }
 
     // DewormingViewModel is Activity-scoped (no Navigation-Compose back stack), so a
     // prior success can still be sitting in createState when this screen re-enters —
@@ -178,6 +220,28 @@ private fun DesparasitacionFormContent(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    pendingWarningDate?.let { warningDate ->
+        AlertDialog(
+            onDismissRequest = { pendingWarningDate = null },
+            title = { Text("Desparasitación programada") },
+            text = {
+                Text(
+                    "La próxima desparasitación está prevista para ${formatDdMmYyyy(warningDate)}. " +
+                        "¿Quieres registrar una nueva desparasitación igualmente?",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingWarningDate = null
+                    submit()
+                }) { Text("Registrar igualmente") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingWarningDate = null }) { Text("Cancelar") }
+            },
+        )
     }
 
     Column(
@@ -352,27 +416,22 @@ private fun DesparasitacionFormContent(
             val isLoading = createState is CreateDewormingUiState.Loading
             Button(
                 onClick = {
-                    val petId = selectedPet?.id
                     val duracionMeses = when (duracion) {
                         Duracion.OneMonth -> 1L
                         Duracion.ThreeMonths -> 3L
                         Duracion.Custom -> duracionMesesCustom.toLongOrNull()
                     }
                     when {
-                        petId == null -> validationError = "Agrega una mascota primero."
+                        selectedPet?.id == null -> validationError = "Agrega una mascota primero."
                         duracion is Duracion.Custom && duracionMeses == null ->
                             validationError = "Ingresa la duración en meses."
+                        upcomingDueDate != null -> {
+                            validationError = null
+                            pendingWarningDate = upcomingDueDate
+                        }
                         else -> {
                             validationError = null
-                            viewModel.createDesparasitacion(
-                                petId = petId,
-                                dewormingType = tipo.apiValue,
-                                appliedOnIso = date.toString(),
-                                nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
-                                durationMonths = duracionMeses?.toInt(),
-                                productName = producto,
-                                notes = observaciones,
-                            )
+                            submit()
                         }
                     }
                 },

@@ -3,7 +3,7 @@ package com.petdrive.app.core.network
 object ApiEndpoints {
     // Android emulator alias for host localhost; change this one constant when the
     // backend's reachable address changes (mirrors APIEndpoint.baseURL in iOS).
-    const val BASE_URL = "https://pet-api-production-a168.up.railway.app/api"
+    const val BASE_URL = "https://pet-api-production-aaf9.up.railway.app/api"
 
     const val REGISTER = "/auth/register/"
     const val LOGIN = "/auth/login/"
