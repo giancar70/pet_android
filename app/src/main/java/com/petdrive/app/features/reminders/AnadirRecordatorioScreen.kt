@@ -86,8 +86,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -344,7 +344,12 @@ private fun RecordatorioFormContent(
                                 petId = petId,
                                 category = category.apiValue,
                                 title = titulo.trim(),
-                                dueDateIso = dueDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")),
+                                // dueDateTime is the device's local wall-clock picker value with no
+                                // timezone attached -- converting through the device's zone before
+                                // formatting is what makes this the correct UTC instant for a user
+                                // outside UTC (the backend's TIME_ZONE is UTC, so a naive string
+                                // here would otherwise be misread as if it were already UTC).
+                                dueDateIso = dueDateTime.atZone(ZoneId.systemDefault()).toInstant().toString(),
                                 frequency = frequency.apiValue,
                                 customDays = if (frequency == ReminderFrequency.CUSTOM_DAYS) days else null,
                                 notifyPush = true,
