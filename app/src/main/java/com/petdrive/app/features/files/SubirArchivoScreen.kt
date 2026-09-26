@@ -111,19 +111,37 @@ private data class SelectedFile(
 private sealed interface UploadStep {
     data object Picker : UploadStep
     data class Selected(val file: SelectedFile) : UploadStep
-    data class Success(val file: SelectedFile) : UploadStep
-    // Only reached from CapturarDocumentoScreen(isVaccineCapture = true) when the
-    // upload response came back with a non-empty detected-vaccines list.
+    // wasVaccineCard: the document was uploaded as "Cartilla de vacunas" but no vaccines
+    // came back (nothing legible, extraction failed, or a PDF -- only images are read),
+    // so the success screen explains why nothing was offered for review.
+    data class Success(val file: SelectedFile, val wasVaccineCard: Boolean = false, val documentTypeLabel: String? = null) : UploadStep
+    // Reached from either entry point whenever a "Cartilla de vacunas" upload's response
+    // came back with a non-empty detected-vaccines list.
     data class ReviewVaccines(val document: Document) : UploadStep
 }
 
+private fun stepAfterUpload(file: SelectedFile, document: Document): UploadStep {
+    val wasVaccineCard = document.documentType == DocumentTypeOption.VACCINE_CARD.apiValue
+    return if (wasVaccineCard && !document.aiJsonResult.isNullOrEmpty()) {
+        UploadStep.ReviewVaccines(document)
+    } else {
+        val typeLabel = DocumentTypeOption.entries.firstOrNull { it.apiValue == document.documentType }?.label
+        UploadStep.Success(file, wasVaccineCard, typeLabel)
+    }
+}
+
+// onViewVaccinesActivity is where "Registrar N vacunas" (the review step) lands, separate
+// from onViewActivity (the plain saved-document success screen) since they belong on
+// different Actividad filters.
 @Composable
 fun SubirArchivoScreen(
     selectedPet: Pet?,
     userFullName: String?,
     onBack: () -> Unit,
     onViewActivity: () -> Unit,
+    onViewVaccinesActivity: () -> Unit = onViewActivity,
     viewModel: FilesViewModel = viewModel(),
+    vaccinesViewModel: VaccinesViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
 
@@ -139,17 +157,26 @@ fun SubirArchivoScreen(
             userFullName = userFullName,
             file = current.file,
             onBack = { step = UploadStep.Picker },
-            onUploaded = { step = UploadStep.Success(current.file) },
+            onUploaded = { document -> step = stepAfterUpload(current.file, document) },
             viewModel = viewModel,
         )
         is UploadStep.Success -> DocumentoGuardadoStep(
             selectedPet = selectedPet,
             userFullName = userFullName,
             file = current.file,
+            noVaccinesDetectedNote = current.wasVaccineCard,
+            documentTypeLabel = current.documentTypeLabel,
             onViewActivity = onViewActivity,
             onUploadAnother = { step = UploadStep.Picker },
         )
-        is UploadStep.ReviewVaccines -> Unit // Not reachable from this entry point.
+        is UploadStep.ReviewVaccines -> RevisarVacunasDetectadasStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            document = current.document,
+            onBack = onBack,
+            onRegistered = onViewVaccinesActivity,
+            viewModel = vaccinesViewModel,
+        )
     }
 }
 
@@ -157,9 +184,9 @@ fun SubirArchivoScreen(
 // launches the device camera immediately instead of a file picker. Reuses the same
 // review/upload (ArchivoSeleccionadoStep) and success (DocumentoGuardadoStep) steps.
 // isVaccineCapture (only set true from the Vacunas empty-state's "Capturar documento")
-// preselects the "Cartilla de vacunas" document type and, when the upload detects
-// vaccines on the card, routes to a review/confirm step instead of the plain success
-// screen -- see MainScaffold's capturaDocumentoIsVaccine.
+// additionally preselects and locks the "Cartilla de vacunas" document type -- from any
+// other entry point the user can still pick that type themselves and get the same AI
+// detection/review step (see stepAfterUpload).
 @Composable
 fun CapturarDocumentoScreen(
     selectedPet: Pet?,
@@ -167,6 +194,7 @@ fun CapturarDocumentoScreen(
     isVaccineCapture: Boolean = false,
     onBack: () -> Unit,
     onViewActivity: () -> Unit,
+    onViewVaccinesActivity: () -> Unit = onViewActivity,
     viewModel: FilesViewModel = viewModel(),
     vaccinesViewModel: VaccinesViewModel = viewModel(),
 ) {
@@ -183,21 +211,15 @@ fun CapturarDocumentoScreen(
             file = current.file,
             preselectedType = if (isVaccineCapture) DocumentTypeOption.VACCINE_CARD else null,
             onBack = { step = UploadStep.Picker },
-            onUploaded = { document ->
-                val detected = document.aiJsonResult
-                step = if (isVaccineCapture && !detected.isNullOrEmpty()) {
-                    UploadStep.ReviewVaccines(document)
-                } else {
-                    UploadStep.Success(current.file)
-                }
-            },
+            onUploaded = { document -> step = stepAfterUpload(current.file, document) },
             viewModel = viewModel,
         )
         is UploadStep.Success -> DocumentoGuardadoStep(
             selectedPet = selectedPet,
             userFullName = userFullName,
             file = current.file,
-            noVaccinesDetectedNote = isVaccineCapture,
+            noVaccinesDetectedNote = current.wasVaccineCard,
+            documentTypeLabel = current.documentTypeLabel,
             onViewActivity = onViewActivity,
             onUploadAnother = { step = UploadStep.Picker },
         )
@@ -206,7 +228,7 @@ fun CapturarDocumentoScreen(
             userFullName = userFullName,
             document = current.document,
             onBack = onBack,
-            onRegistered = onViewActivity,
+            onRegistered = onViewVaccinesActivity,
             viewModel = vaccinesViewModel,
         )
     }
@@ -399,7 +421,6 @@ private fun ArchivoSeleccionadoStep(
     viewModel: FilesViewModel,
 ) {
     val uploadState by viewModel.uploadState.collectAsState()
-    var showConfirmDialog by remember { mutableStateOf(false) }
     var showTypeDialog by remember { mutableStateOf(false) }
     var documentType by remember { mutableStateOf(preselectedType) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -512,11 +533,13 @@ private fun ArchivoSeleccionadoStep(
             val isUploading = uploadState is UploadDocumentUiState.Loading
             Button(
                 onClick = {
-                    if (documentType == null) {
+                    val petId = selectedPet?.id
+                    val type = documentType
+                    if (type == null) {
                         validationError = "Selecciona un tipo de documento."
-                    } else {
+                    } else if (petId != null) {
                         validationError = null
-                        showConfirmDialog = true
+                        viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType, type.apiValue)
                     }
                 },
                 enabled = !isUploading && selectedPet != null,
@@ -534,32 +557,6 @@ private fun ArchivoSeleccionadoStep(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-
-    if (showConfirmDialog) {
-        val petName = selectedPet?.name ?: "tu mascota"
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            title = { Text("Confirmar archivo y mascota") },
-            text = {
-                Text("Se guardará \"${file.name}\" (${documentType?.label}) en el historial de $petName. Esta acción no se puede deshacer.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showConfirmDialog = false
-                        val petId = selectedPet?.id
-                        val type = documentType
-                        if (petId != null && type != null) {
-                            viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType, type.apiValue)
-                        }
-                    },
-                ) { Text("Guardar", color = BrandGreen) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) { Text("Cancelar") }
-            },
-        )
     }
 
     if (showTypeDialog) {
@@ -602,6 +599,7 @@ private fun DocumentoGuardadoStep(
     userFullName: String?,
     file: SelectedFile,
     noVaccinesDetectedNote: Boolean = false,
+    documentTypeLabel: String? = null,
     onViewActivity: () -> Unit,
     onUploadAnother: () -> Unit,
 ) {
@@ -639,7 +637,11 @@ private fun DocumentoGuardadoStep(
             if (noVaccinesDetectedNote) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "No se detectaron vacunas automáticamente. Puedes registrarlas manualmente.",
+                    text = if (file.mimeType == "application/pdf") {
+                        "La detección automática de vacunas solo funciona con imágenes (JPG/PNG). Puedes registrarlas manualmente."
+                    } else {
+                        "No se detectaron vacunas automáticamente. Puedes registrarlas manualmente."
+                    },
                     color = SubtitleGray,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -655,6 +657,10 @@ private fun DocumentoGuardadoStep(
             ) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     InfoRow(Icons.Filled.Description, "Documento guardado", file.name)
+                    if (documentTypeLabel != null) {
+                        HorizontalDivider(color = CardBorder)
+                        InfoRow(Icons.Filled.Category, "Categoría", documentTypeLabel)
+                    }
                 }
             }
 

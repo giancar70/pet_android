@@ -324,6 +324,11 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     activityFilter = ActivityCategory.DOCUMENT
                     currentTab = MainTab.ACTIVIDAD
                 },
+                onViewVaccinesActivity = {
+                    showSubirArchivo = false
+                    activityFilter = ActivityCategory.VACCINE
+                    currentTab = MainTab.ACTIVIDAD
+                },
             )
             return
         }
@@ -338,7 +343,13 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 },
                 onViewActivity = {
                     showCapturarDocumento = false
-                    activityFilter = if (capturaDocumentoIsVaccine) ActivityCategory.VACCINE else ActivityCategory.DOCUMENT
+                    activityFilter = ActivityCategory.DOCUMENT
+                    capturaDocumentoIsVaccine = false
+                    currentTab = MainTab.ACTIVIDAD
+                },
+                onViewVaccinesActivity = {
+                    showCapturarDocumento = false
+                    activityFilter = ActivityCategory.VACCINE
                     capturaDocumentoIsVaccine = false
                     currentTab = MainTab.ACTIVIDAD
                 },
