@@ -132,11 +132,28 @@ object ApiClient {
         if (code !in 200..299) throw serverErrorFor(code, bodyStr)
     }
 
+    // AllowAny on the backend only skips the permission check -- DRF's TokenAuthentication
+    // still runs first and rejects the whole request with 401 "Invalid token." if an
+    // Authorization header is present but stale/invalid, before the view logic (or its
+    // AllowAny) is ever reached. A previously-logged-in account's token can go stale
+    // server-side (e.g. a later login elsewhere rotates it) while still sitting in
+    // TokenStore here, so these four public endpoints must never attach it -- otherwise
+    // login/register/password-reset fail with no indication it was the stale token, not
+    // the credentials, that caused it.
+    private val publicPaths = setOf(
+        ApiEndpoints.LOGIN,
+        ApiEndpoints.REGISTER,
+        ApiEndpoints.PASSWORD_RESET_REQUEST,
+        ApiEndpoints.PASSWORD_RESET_CONFIRM,
+    )
+
     @PublishedApi
     internal fun newRequest(path: String, tokenOverride: String? = null): Request.Builder {
         val builder = Request.Builder().url(ApiEndpoints.BASE_URL + path)
-        val token = tokenOverride ?: TokenStore.token
-        token?.let { builder.addHeader("Authorization", "Token $it") }
+        if (path !in publicPaths) {
+            val token = tokenOverride ?: TokenStore.token
+            token?.let { builder.addHeader("Authorization", "Token $it") }
+        }
         return builder
     }
 

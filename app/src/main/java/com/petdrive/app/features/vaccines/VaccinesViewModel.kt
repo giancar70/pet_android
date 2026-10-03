@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.petdrive.app.core.model.CreateVaccineDoseRequest
 import com.petdrive.app.core.model.RegisterVaccinesFromDocumentRequest
+import com.petdrive.app.core.model.UpdateVaccineDoseRequest
 import com.petdrive.app.core.model.VaccineDose
 import com.petdrive.app.core.network.ApiClient
 import com.petdrive.app.core.network.ApiEndpoints
@@ -46,6 +47,13 @@ sealed interface RegisterVaccinesUiState {
     data class Error(val message: String) : RegisterVaccinesUiState
 }
 
+sealed interface UpdateVaccineDoseUiState {
+    data object Idle : UpdateVaccineDoseUiState
+    data object Loading : UpdateVaccineDoseUiState
+    data class Success(val dose: VaccineDose) : UpdateVaccineDoseUiState
+    data class Error(val message: String) : UpdateVaccineDoseUiState
+}
+
 class VaccinesViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateVaccineDoseUiState>(CreateVaccineDoseUiState.Idle)
     val createState: StateFlow<CreateVaccineDoseUiState> = _createState.asStateFlow()
@@ -61,6 +69,9 @@ class VaccinesViewModel : ViewModel() {
 
     private val _registerFromDocumentState = MutableStateFlow<RegisterVaccinesUiState>(RegisterVaccinesUiState.Idle)
     val registerFromDocumentState: StateFlow<RegisterVaccinesUiState> = _registerFromDocumentState.asStateFlow()
+
+    private val _updateState = MutableStateFlow<UpdateVaccineDoseUiState>(UpdateVaccineDoseUiState.Idle)
+    val updateState: StateFlow<UpdateVaccineDoseUiState> = _updateState.asStateFlow()
 
     // Tracks which pet's list is currently held in _listState so fetchVacunas can skip
     // a redundant network call when nothing has changed (e.g. re-entering Inicio after
@@ -191,5 +202,35 @@ class VaccinesViewModel : ViewModel() {
 
     fun resetRegisterFromDocumentState() {
         _registerFromDocumentState.value = RegisterVaccinesUiState.Idle
+    }
+
+    // Edits the renewal date on an existing dose in place (VacunaDetailScreen's
+    // "Guardar") -- unlike "Renovar", which creates a brand new dose and leaves this one
+    // untouched (see VaccineDoseSerializer.create(), which no longer auto-replaces).
+    fun updateNextDueOn(petId: String, doseId: String, nextDueOnIso: String) {
+        _updateState.value = UpdateVaccineDoseUiState.Loading
+        viewModelScope.launch {
+            try {
+                val dose: VaccineDose = ApiClient.patch(
+                    ApiEndpoints.petVaccineDoseDetail(petId, doseId),
+                    UpdateVaccineDoseRequest(nextDueOn = nextDueOnIso),
+                )
+                _updateState.value = UpdateVaccineDoseUiState.Success(dose)
+                if (_detailState.value is VaccineDoseDetailUiState.Loaded) {
+                    _detailState.value = VaccineDoseDetailUiState.Loaded(dose)
+                }
+                (_listState.value as? VaccinesListUiState.Loaded)?.let {
+                    _listState.value = VaccinesListUiState.Loaded(it.doses.map { d -> if (d.id == dose.id) dose else d })
+                }
+            } catch (e: ApiError.ServerError) {
+                _updateState.value = UpdateVaccineDoseUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _updateState.value = UpdateVaccineDoseUiState.Error(e.message ?: "No se pudo actualizar la vacuna.")
+            }
+        }
+    }
+
+    fun resetUpdateState() {
+        _updateState.value = UpdateVaccineDoseUiState.Idle
     }
 }

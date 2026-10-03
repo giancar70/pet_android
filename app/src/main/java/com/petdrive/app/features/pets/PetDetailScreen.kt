@@ -70,6 +70,7 @@ import com.petdrive.app.core.model.PetSex
 import com.petdrive.app.core.model.PetSpecies
 import com.petdrive.app.core.model.UpdatePetRequest
 import com.petdrive.app.core.model.petSexLabel
+import com.petdrive.app.features.files.PetInfoDraft
 import com.petdrive.app.core.model.petSpeciesLabel
 import com.petdrive.app.features.main.GreetingHeader
 import java.time.Instant
@@ -89,6 +90,13 @@ fun PetDetailScreen(
     pet: Pet,
     onBack: () -> Unit,
     onOpenActivityLog: () -> Unit = {},
+    // Set only when opened from paso5 (RevisarInformacionDetectadaScreen) to verify/edit
+    // AI-detected pet info: prefills the form (falling back to the pet's current value
+    // for anything the AI didn't find) and, on Guardar, hands the edited values back via
+    // onDraftSaved instead of calling the network -- nothing is saved until paso5's own
+    // "Guardar registros". Delete/photo/activity-log aren't relevant mid-scan.
+    draft: PetInfoDraft? = null,
+    onDraftSaved: ((PetInfoDraft) -> Unit)? = null,
     viewModel: PetsViewModel = viewModel(),
 ) {
     // A shared pet's role/can_edit come from the backend (owner => both true/"owner").
@@ -112,7 +120,7 @@ fun PetDetailScreen(
         }
     }
     LaunchedEffect(Unit) {
-        viewModel.resetUpdatePetImageState()
+        if (onDraftSaved == null) viewModel.resetUpdatePetImageState()
     }
     var consumedInitialImageState by remember { mutableStateOf(false) }
     LaunchedEffect(updatePetImageState) {
@@ -126,15 +134,15 @@ fun PetDetailScreen(
         }
     }
 
-    var name by remember(pet.id) { mutableStateOf(pet.name) }
-    var species by remember(pet.id) { mutableStateOf(pet.species) }
-    var breed by remember(pet.id) { mutableStateOf(pet.breed.orEmpty()) }
-    var sex by remember(pet.id) { mutableStateOf(pet.sex) }
-    var birthDateIso by remember(pet.id) { mutableStateOf(pet.birthDate) }
-    var weightKg by remember(pet.id) { mutableStateOf(pet.weightKg.orEmpty()) }
-    var color by remember(pet.id) { mutableStateOf(pet.color.orEmpty()) }
-    var microchip by remember(pet.id) { mutableStateOf(pet.microchip.orEmpty()) }
-    var notes by remember(pet.id) { mutableStateOf(pet.notes.orEmpty()) }
+    var name by remember(pet.id) { mutableStateOf(draft?.name ?: pet.name) }
+    var species by remember(pet.id) { mutableStateOf(draft?.species ?: pet.species) }
+    var breed by remember(pet.id) { mutableStateOf(draft?.breed ?: pet.breed.orEmpty()) }
+    var sex by remember(pet.id) { mutableStateOf(draft?.sex ?: pet.sex) }
+    var birthDateIso by remember(pet.id) { mutableStateOf(draft?.birthDate ?: pet.birthDate) }
+    var weightKg by remember(pet.id) { mutableStateOf(draft?.weightKg ?: pet.weightKg.orEmpty()) }
+    var color by remember(pet.id) { mutableStateOf(draft?.color ?: pet.color.orEmpty()) }
+    var microchip by remember(pet.id) { mutableStateOf(draft?.microchip ?: pet.microchip.orEmpty()) }
+    var notes by remember(pet.id) { mutableStateOf(draft?.notes ?: pet.notes.orEmpty()) }
 
     var activeDialog by remember { mutableStateOf<DetailField?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -146,11 +154,14 @@ fun PetDetailScreen(
     // always ignores the first firing regardless of what it sees, and only acts on a
     // later, genuine Success from this screen's own save.
     LaunchedEffect(Unit) {
-        viewModel.resetUpdateState()
-        viewModel.resetDeleteState()
+        if (onDraftSaved == null) {
+            viewModel.resetUpdateState()
+            viewModel.resetDeleteState()
+        }
     }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(updateState) {
+        if (onDraftSaved != null) return@LaunchedEffect
         if (!consumedInitialState) {
             consumedInitialState = true
             return@LaunchedEffect
@@ -159,6 +170,7 @@ fun PetDetailScreen(
     }
     var consumedInitialDeleteState by remember { mutableStateOf(false) }
     LaunchedEffect(deleteState) {
+        if (onDraftSaved != null) return@LaunchedEffect
         if (!consumedInitialDeleteState) {
             consumedInitialDeleteState = true
             return@LaunchedEffect
@@ -190,7 +202,7 @@ fun PetDetailScreen(
             userFullName = null,
             hasPets = true,
             onSwitchPetClick = onBack,
-            onEditPhotoClick = if (canEdit && updatePetImageState !is UpdatePetImageUiState.Loading) {
+            onEditPhotoClick = if (onDraftSaved == null && canEdit && updatePetImageState !is UpdatePetImageUiState.Loading) {
                 { imagePicker.launch("image/*") }
             } else {
                 null
@@ -279,20 +291,22 @@ fun PetDetailScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (onDraftSaved == null) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-            DetailCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onOpenActivityLog)
-                        .padding(vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.History, contentDescription = null, tint = BrandGreen)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(text = "Historial de actividad", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
+                DetailCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenActivityLog)
+                            .padding(vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.History, contentDescription = null, tint = BrandGreen)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(text = "Historial de actividad", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SubtitleGray)
+                    }
                 }
             }
 
@@ -324,20 +338,37 @@ fun PetDetailScreen(
                 val isSaving = updateState is UpdatePetUiState.Loading
                 Button(
                     onClick = {
-                        viewModel.updatePet(
-                            pet.id,
-                            UpdatePetRequest(
-                                name = name,
-                                species = species,
-                                breed = breed.ifBlank { null },
-                                sex = sex,
-                                birthDate = birthDateIso,
-                                weightKg = weightKg.ifBlank { null },
-                                color = color.ifBlank { null },
-                                microchip = microchip.ifBlank { null },
-                                notes = notes.ifBlank { null },
-                            ),
-                        )
+                        if (onDraftSaved != null) {
+                            onDraftSaved(
+                                PetInfoDraft(
+                                    name = name,
+                                    species = species,
+                                    breed = breed.ifBlank { null },
+                                    sex = sex,
+                                    birthDate = birthDateIso,
+                                    weightKg = weightKg.ifBlank { null },
+                                    color = color.ifBlank { null },
+                                    microchip = microchip.ifBlank { null },
+                                    notes = notes.ifBlank { null },
+                                ),
+                            )
+                            onBack()
+                        } else {
+                            viewModel.updatePet(
+                                pet.id,
+                                UpdatePetRequest(
+                                    name = name,
+                                    species = species,
+                                    breed = breed.ifBlank { null },
+                                    sex = sex,
+                                    birthDate = birthDateIso,
+                                    weightKg = weightKg.ifBlank { null },
+                                    color = color.ifBlank { null },
+                                    microchip = microchip.ifBlank { null },
+                                    notes = notes.ifBlank { null },
+                                ),
+                            )
+                        }
                     },
                     enabled = !isSaving,
                     shape = RoundedCornerShape(28.dp),
@@ -346,11 +377,11 @@ fun PetDetailScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                 ) {
-                    Text(text = if (isSaving) "Guardando…" else "Guardar", fontWeight = FontWeight.Bold)
+                    Text(text = if (isSaving) "Guardando…" else if (onDraftSaved != null) "Verificar información" else "Guardar", fontWeight = FontWeight.Bold)
                 }
             }
 
-            if (isOwner) {
+            if (isOwner && onDraftSaved == null) {
                 if (deleteState is DeletePetUiState.Error) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(

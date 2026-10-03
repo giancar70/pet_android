@@ -131,10 +131,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showRegistrarConsulta by remember { mutableStateOf(false) }
     var showSubirArchivo by remember { mutableStateOf(false) }
     var showCapturarDocumento by remember { mutableStateOf(false) }
-    // Only the Vacunas empty-state's "Capturar documento" sets this true -- lets the
-    // shared CapturarDocumentoScreen preselect the "Cartilla de vacunas" document type
-    // and offer the AI-detected-vaccines review step, without a separate screen.
-    var capturaDocumentoIsVaccine by remember { mutableStateOf(false) }
     var showAnadirRecordatorio by remember { mutableStateOf(false) }
     var showRecordatorios by remember { mutableStateOf(false) }
     var recordatorioDetail by remember { mutableStateOf<Reminder?>(null) }
@@ -336,21 +332,15 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             CapturarDocumentoScreen(
                 selectedPet = selectedPet,
                 userFullName = userFullName,
-                isVaccineCapture = capturaDocumentoIsVaccine,
-                onBack = {
-                    showCapturarDocumento = false
-                    capturaDocumentoIsVaccine = false
-                },
+                onBack = { showCapturarDocumento = false },
                 onViewActivity = {
                     showCapturarDocumento = false
                     activityFilter = ActivityCategory.DOCUMENT
-                    capturaDocumentoIsVaccine = false
                     currentTab = MainTab.ACTIVIDAD
                 },
                 onViewVaccinesActivity = {
                     showCapturarDocumento = false
                     activityFilter = ActivityCategory.VACCINE
-                    capturaDocumentoIsVaccine = false
                     currentTab = MainTab.ACTIVIDAD
                 },
             )
@@ -450,7 +440,6 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             },
             onCapturarDocumento = {
                 dismiss()
-                capturaDocumentoIsVaccine = false
                 showCapturarDocumento = true
             },
             canEdit = canEditSelectedPet,
@@ -500,13 +489,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onRegistrarConsulta = { showRegistrarConsulta = true },
                 onRegistrarIncidencia = { showRegistrarIncidencia = true },
                 onAnadirRecordatorio = { showAnadirRecordatorio = true },
-                onCapturarDocumento = {
-                    // PetActivityContent's onCapturarDocumento is only ever wired to
-                    // VaccinesSection's empty-state button -- this is exclusively the
-                    // Vacunas "Capturar documento" entry point.
-                    capturaDocumentoIsVaccine = true
-                    showCapturarDocumento = true
-                },
+                onCapturarDocumento = { showCapturarDocumento = true },
                 onSubirArchivo = { showSubirArchivo = true },
                 onVerVacunas = {
                     activityFilter = ActivityCategory.VACCINE

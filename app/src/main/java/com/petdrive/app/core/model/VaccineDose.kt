@@ -17,6 +17,12 @@ data class CreateVaccineDoseRequest(
 @Serializable
 data class RegisterVaccinesFromDocumentRequest(val vaccines: List<CreateVaccineDoseRequest>)
 
+// PATCH vaccine-doses/<id>/ -- edits the renewal date on an existing dose in place
+// (VacunaDetailScreen's "Guardar"), as opposed to "Renovar" which creates a brand new
+// dose via CreateVaccineDoseRequest and leaves this one untouched.
+@Serializable
+data class UpdateVaccineDoseRequest(@SerialName("next_due_on") val nextDueOn: String)
+
 @Serializable
 data class VaccineDose(
     val id: String,

@@ -163,7 +163,8 @@ fun SubirArchivoScreen(
         is UploadStep.Success -> DocumentoGuardadoStep(
             selectedPet = selectedPet,
             userFullName = userFullName,
-            file = current.file,
+            fileName = current.file.name,
+            mimeType = current.file.mimeType,
             noVaccinesDetectedNote = current.wasVaccineCard,
             documentTypeLabel = current.documentTypeLabel,
             onViewActivity = onViewActivity,
@@ -177,89 +178,6 @@ fun SubirArchivoScreen(
             onRegistered = onViewVaccinesActivity,
             viewModel = vaccinesViewModel,
         )
-    }
-}
-
-// Mirrors SubirArchivoScreen's Picker -> Selected -> Success flow, but the "Picker" step
-// launches the device camera immediately instead of a file picker. Reuses the same
-// review/upload (ArchivoSeleccionadoStep) and success (DocumentoGuardadoStep) steps.
-// isVaccineCapture (only set true from the Vacunas empty-state's "Capturar documento")
-// additionally preselects and locks the "Cartilla de vacunas" document type -- from any
-// other entry point the user can still pick that type themselves and get the same AI
-// detection/review step (see stepAfterUpload).
-@Composable
-fun CapturarDocumentoScreen(
-    selectedPet: Pet?,
-    userFullName: String?,
-    isVaccineCapture: Boolean = false,
-    onBack: () -> Unit,
-    onViewActivity: () -> Unit,
-    onViewVaccinesActivity: () -> Unit = onViewActivity,
-    viewModel: FilesViewModel = viewModel(),
-    vaccinesViewModel: VaccinesViewModel = viewModel(),
-) {
-    var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
-
-    when (val current = step) {
-        is UploadStep.Picker -> CapturaDocumentoStep(
-            onBack = onBack,
-            onCaptured = { step = UploadStep.Selected(it) },
-        )
-        is UploadStep.Selected -> ArchivoSeleccionadoStep(
-            selectedPet = selectedPet,
-            userFullName = userFullName,
-            file = current.file,
-            preselectedType = if (isVaccineCapture) DocumentTypeOption.VACCINE_CARD else null,
-            onBack = { step = UploadStep.Picker },
-            onUploaded = { document -> step = stepAfterUpload(current.file, document) },
-            viewModel = viewModel,
-        )
-        is UploadStep.Success -> DocumentoGuardadoStep(
-            selectedPet = selectedPet,
-            userFullName = userFullName,
-            file = current.file,
-            noVaccinesDetectedNote = current.wasVaccineCard,
-            documentTypeLabel = current.documentTypeLabel,
-            onViewActivity = onViewActivity,
-            onUploadAnother = { step = UploadStep.Picker },
-        )
-        is UploadStep.ReviewVaccines -> RevisarVacunasDetectadasStep(
-            selectedPet = selectedPet,
-            userFullName = userFullName,
-            document = current.document,
-            onBack = onBack,
-            onRegistered = onViewVaccinesActivity,
-            viewModel = vaccinesViewModel,
-        )
-    }
-}
-
-@Composable
-private fun CapturaDocumentoStep(
-    onBack: () -> Unit,
-    onCaptured: (SelectedFile) -> Unit,
-) {
-    val context = LocalContext.current
-    var pendingUri by remember { mutableStateOf<Uri?>(null) }
-
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-    ) { success ->
-        val uri = pendingUri
-        if (success && uri != null) {
-            onCaptured(readFileMeta(context, uri))
-        } else {
-            onBack()
-        }
-    }
-
-    // Fires the camera intent as soon as this step is entered — there's no picker UI of
-    // our own to show first, matching "just open the camera" rather than a custom scanner.
-    LaunchedEffect(Unit) {
-        val file = File(context.cacheDir, "captura_${System.currentTimeMillis()}.jpg")
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        pendingUri = uri
-        cameraLauncher.launch(uri)
     }
 }
 
@@ -415,14 +333,13 @@ private fun ArchivoSeleccionadoStep(
     selectedPet: Pet?,
     userFullName: String?,
     file: SelectedFile,
-    preselectedType: DocumentTypeOption? = null,
     onBack: () -> Unit,
     onUploaded: (Document) -> Unit,
     viewModel: FilesViewModel,
 ) {
     val uploadState by viewModel.uploadState.collectAsState()
     var showTypeDialog by remember { mutableStateOf(false) }
-    var documentType by remember { mutableStateOf(preselectedType) }
+    var documentType by remember { mutableStateOf<DocumentTypeOption?>(null) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     // FilesViewModel is Activity-scoped (no Navigation-Compose back stack), so a prior
@@ -506,8 +423,7 @@ private fun ArchivoSeleccionadoStep(
                         icon = Icons.Filled.Category,
                         title = "Tipo de documento*",
                         value = documentType?.label ?: "Selecciona un tipo",
-                        showChevron = preselectedType == null,
-                        onClick = { if (preselectedType == null) showTypeDialog = true },
+                        onClick = { showTypeDialog = true },
                     )
                     HorizontalDivider(color = CardBorder)
                     InfoRow(Icons.AutoMirrored.Filled.InsertDriveFile, "Tipo de archivo", fileTypeLabel(file.mimeType))
@@ -594,12 +510,16 @@ private fun ArchivoSeleccionadoStep(
 }
 
 @Composable
-private fun DocumentoGuardadoStep(
+internal fun DocumentoGuardadoStep(
     selectedPet: Pet?,
     userFullName: String?,
-    file: SelectedFile,
+    fileName: String,
+    mimeType: String,
     noVaccinesDetectedNote: Boolean = false,
     documentTypeLabel: String? = null,
+    registeredVaccines: Int = 0,
+    registeredDewormings: Int = 0,
+    uploadAnotherLabel: String = "Subir otro archivo",
     onViewActivity: () -> Unit,
     onUploadAnother: () -> Unit,
 ) {
@@ -637,7 +557,7 @@ private fun DocumentoGuardadoStep(
             if (noVaccinesDetectedNote) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (file.mimeType == "application/pdf") {
+                    text = if (mimeType == "application/pdf") {
                         "La detección automática de vacunas solo funciona con imágenes (JPG/PNG). Puedes registrarlas manualmente."
                     } else {
                         "No se detectaron vacunas automáticamente. Puedes registrarlas manualmente."
@@ -656,10 +576,18 @@ private fun DocumentoGuardadoStep(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    InfoRow(Icons.Filled.Description, "Documento guardado", file.name)
+                    InfoRow(Icons.Filled.Description, "Documento guardado", fileName)
                     if (documentTypeLabel != null) {
                         HorizontalDivider(color = CardBorder)
                         InfoRow(Icons.Filled.Category, "Categoría", documentTypeLabel)
+                    }
+                    if (registeredVaccines > 0) {
+                        HorizontalDivider(color = CardBorder)
+                        InfoRow(Icons.Filled.Check, "Vacunas registradas", registeredVaccines.toString())
+                    }
+                    if (registeredDewormings > 0) {
+                        HorizontalDivider(color = CardBorder)
+                        InfoRow(Icons.Filled.Check, "Desparasitaciones registradas", registeredDewormings.toString())
                     }
                 }
             }
@@ -684,192 +612,7 @@ private fun DocumentoGuardadoStep(
                     .fillMaxWidth()
                     .height(52.dp),
             ) {
-                Text(text = "Subir otro archivo", fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-private data class VaccineEntryForm(
-    val key: Int,
-    val vaccineName: String,
-    val appliedOn: String,
-    val nextDueOn: String,
-    val lotNumber: String,
-)
-
-// Lists the vaccines apps/files/vaccine_extraction.py detected on the cartilla photo,
-// one editable card per entry (name + dates as plain text -- already YYYY-MM-DD from
-// the AI, and the simplest thing for the user to correct a misread on), with a way to
-// drop an entry entirely. "Registrar N vacunas" confirms the (possibly edited/pruned)
-// list via VaccinesViewModel.registerFromDocument -- nothing is saved as a VaccineDose
-// until this step.
-@Composable
-private fun RevisarVacunasDetectadasStep(
-    selectedPet: Pet?,
-    userFullName: String?,
-    document: Document,
-    onBack: () -> Unit,
-    onRegistered: () -> Unit,
-    viewModel: VaccinesViewModel,
-) {
-    val registerState by viewModel.registerFromDocumentState.collectAsState()
-    var entries by remember {
-        mutableStateOf(
-            document.aiJsonResult.orEmpty().mapIndexed { index, detected ->
-                VaccineEntryForm(
-                    key = index,
-                    vaccineName = detected.vaccineName ?: "",
-                    appliedOn = detected.appliedOn ?: "",
-                    nextDueOn = detected.nextDueOn ?: "",
-                    lotNumber = detected.lotNumber ?: "",
-                )
-            },
-        )
-    }
-    var validationError by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) { viewModel.resetRegisterFromDocumentState() }
-    LaunchedEffect(registerState) {
-        if (registerState is RegisterVaccinesUiState.Success) onRegistered()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .verticalScroll(rememberScrollState()),
-    ) {
-        BackHandler(onBack = onBack)
-        IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-        }
-        GreetingHeader(
-            selectedPet = selectedPet,
-            userFullName = userFullName,
-            hasPets = selectedPet != null,
-            onSwitchPetClick = {},
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(text = "Vacunas detectadas", color = BrandGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Revisa y corrige lo necesario antes de registrar.",
-                color = SubtitleGray,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-
-            entries.forEachIndexed { index, entry ->
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, CardBorder),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "Vacuna ${index + 1}", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { entries = entries.filterNot { it.key == entry.key } }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Quitar", tint = Color(0xFFC0392B))
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        OutlinedTextField(
-                            value = entry.vaccineName,
-                            onValueChange = { value -> entries = entries.map { if (it.key == entry.key) it.copy(vaccineName = value) else it } },
-                            label = { Text("Nombre de la vacuna*") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = entry.appliedOn,
-                            onValueChange = { value -> entries = entries.map { if (it.key == entry.key) it.copy(appliedOn = value) else it } },
-                            label = { Text("Fecha de aplicación* (AAAA-MM-DD)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = entry.nextDueOn,
-                            onValueChange = { value -> entries = entries.map { if (it.key == entry.key) it.copy(nextDueOn = value) else it } },
-                            label = { Text("Próxima dosis (opcional, AAAA-MM-DD)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            if (entries.isEmpty()) {
-                Text(
-                    text = "No queda ninguna vacuna por registrar.",
-                    color = SubtitleGray,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(vertical = 12.dp),
-                )
-            }
-
-            val apiErrorMessage = (registerState as? RegisterVaccinesUiState.Error)?.message
-            if (validationError != null || apiErrorMessage != null) {
-                Text(
-                    text = validationError ?: apiErrorMessage!!,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            val isRegistering = registerState is RegisterVaccinesUiState.Loading
-            Button(
-                onClick = {
-                    val petId = selectedPet?.id
-                    when {
-                        petId == null -> validationError = "Agrega una mascota primero."
-                        entries.isEmpty() -> validationError = "No hay vacunas para registrar."
-                        entries.any { it.vaccineName.isBlank() || it.appliedOn.isBlank() } ->
-                            validationError = "Completa el nombre y la fecha de aplicación de cada vacuna."
-                        else -> {
-                            validationError = null
-                            viewModel.registerFromDocument(
-                                petId = petId,
-                                documentId = document.id,
-                                vaccines = entries.map {
-                                    CreateVaccineDoseRequest(
-                                        vaccineName = it.vaccineName.trim(),
-                                        appliedOn = it.appliedOn.trim(),
-                                        nextDueOn = it.nextDueOn.trim().takeIf { due -> due.isNotBlank() },
-                                        lotNumber = it.lotNumber.trim().takeIf { lot -> lot.isNotBlank() },
-                                    )
-                                },
-                            )
-                        }
-                    }
-                },
-                enabled = !isRegistering && entries.isNotEmpty(),
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                if (isRegistering) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
-                } else {
-                    Text(text = "Registrar ${entries.size} vacuna${if (entries.size == 1) "" else "s"}", fontWeight = FontWeight.Bold)
-                }
+                Text(text = uploadAnotherLabel, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -877,7 +620,7 @@ private fun RevisarVacunasDetectadasStep(
 }
 
 @Composable
-private fun SuccessIllustration() {
+internal fun SuccessIllustration() {
     Box(modifier = Modifier.size(140.dp), contentAlignment = Alignment.Center) {
         Icon(
             Icons.Filled.AutoAwesome,
@@ -926,7 +669,7 @@ private fun SuccessIllustration() {
 }
 
 @Composable
-private fun InfoRow(icon: ImageVector, title: String, value: String) {
+internal fun InfoRow(icon: ImageVector, title: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -943,7 +686,7 @@ private fun InfoRow(icon: ImageVector, title: String, value: String) {
 }
 
 @Composable
-private fun TypeSelectorRow(icon: ImageVector, title: String, value: String, showChevron: Boolean = true, onClick: () -> Unit) {
+internal fun TypeSelectorRow(icon: ImageVector, title: String, value: String, showChevron: Boolean = true, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -963,7 +706,7 @@ private fun TypeSelectorRow(icon: ImageVector, title: String, value: String, sho
     }
 }
 
-private fun Modifier.dashedBorder(color: Color, strokeWidth: androidx.compose.ui.unit.Dp = 1.5.dp): Modifier =
+internal fun Modifier.dashedBorder(color: Color, strokeWidth: androidx.compose.ui.unit.Dp = 1.5.dp): Modifier =
     this.drawBehind {
         drawRoundRect(
             color = color,

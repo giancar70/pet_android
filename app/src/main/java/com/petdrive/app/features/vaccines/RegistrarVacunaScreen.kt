@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.core.model.Pet
+import com.petdrive.app.features.files.VaccineDraft
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
@@ -77,9 +78,16 @@ private sealed interface VacunaStep {
 fun RegistrarVacunaScreen(
     selectedPet: Pet?,
     userFullName: String?,
+    // Set only when opened from paso5 (RevisarInformacionDetectadaScreen) to verify/edit
+    // an AI-detected vaccine: prefills the form and, on Guardar, hands the edited values
+    // back via onDraftSaved instead of calling the network -- nothing is registered until
+    // paso5's own "Guardar registros".
+    draft: VaccineDraft? = null,
+    onDraftSaved: ((VaccineDraft) -> Unit)? = null,
+    onRemoveDraft: (() -> Unit)? = null,
     onBack: () -> Unit,
-    onFinish: () -> Unit,
-    onViewActivity: () -> Unit,
+    onFinish: () -> Unit = {},
+    onViewActivity: () -> Unit = {},
     viewModel: VaccinesViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<VacunaStep>(VacunaStep.Form) }
@@ -88,6 +96,9 @@ fun RegistrarVacunaScreen(
         is VacunaStep.Form -> VacunaFormContent(
             selectedPet = selectedPet,
             userFullName = userFullName,
+            draft = draft,
+            onDraftSaved = onDraftSaved,
+            onRemoveDraft = onRemoveDraft,
             onBack = onBack,
             onSaved = { step = VacunaStep.Success(it) },
             viewModel = viewModel,
@@ -106,17 +117,20 @@ fun RegistrarVacunaScreen(
 private fun VacunaFormContent(
     selectedPet: Pet?,
     userFullName: String?,
+    draft: VaccineDraft? = null,
+    onDraftSaved: ((VaccineDraft) -> Unit)? = null,
+    onRemoveDraft: (() -> Unit)? = null,
     onBack: () -> Unit,
     onSaved: (SavedVacuna) -> Unit,
     viewModel: VaccinesViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
 
-    var vacunaAplicada by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(LocalDate.now()) }
-    var nextDueDate by remember { mutableStateOf<LocalDate?>(null) }
-    var lote by remember { mutableStateOf("") }
-    var observaciones by remember { mutableStateOf("") }
+    var vacunaAplicada by remember { mutableStateOf(draft?.vaccineName ?: "") }
+    var date by remember { mutableStateOf(draft?.appliedOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
+    var nextDueDate by remember { mutableStateOf(draft?.nextDueOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() }) }
+    var lote by remember { mutableStateOf(draft?.lotNumber ?: "") }
+    var observaciones by remember { mutableStateOf(draft?.notes ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -142,10 +156,11 @@ private fun VacunaFormContent(
     // only a later, genuine transition (Loading -> Success from this screen's own save)
     // triggers onSaved.
     LaunchedEffect(Unit) {
-        viewModel.resetCreateState()
+        if (onDraftSaved == null) viewModel.resetCreateState()
     }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
+        if (onDraftSaved != null) return@LaunchedEffect
         if (!consumedInitialState) {
             consumedInitialState = true
             return@LaunchedEffect
@@ -388,17 +403,30 @@ private fun VacunaFormContent(
                     val petId = selectedPet?.id
                     when {
                         vacunaAplicada.isBlank() -> validationError = "Ingresa el nombre de la vacuna aplicada."
-                        petId == null -> validationError = "Agrega una mascota primero."
+                        onDraftSaved == null && petId == null -> validationError = "Agrega una mascota primero."
                         else -> {
                             validationError = null
-                            viewModel.createVacuna(
-                                petId = petId,
-                                vaccineName = vacunaAplicada,
-                                appliedOnIso = date.toString(),
-                                nextDueOnIso = nextDueDate?.toString(),
-                                lotNumber = lote,
-                                notes = observaciones,
-                            )
+                            if (onDraftSaved != null) {
+                                onDraftSaved(
+                                    VaccineDraft(
+                                        vaccineName = vacunaAplicada,
+                                        appliedOn = date.toString(),
+                                        nextDueOn = nextDueDate?.toString(),
+                                        lotNumber = lote.takeIf { it.isNotBlank() },
+                                        notes = observaciones.takeIf { it.isNotBlank() },
+                                    ),
+                                )
+                                onBack()
+                            } else {
+                                viewModel.createVacuna(
+                                    petId = petId!!,
+                                    vaccineName = vacunaAplicada,
+                                    appliedOnIso = date.toString(),
+                                    nextDueOnIso = nextDueDate?.toString(),
+                                    lotNumber = lote,
+                                    notes = observaciones,
+                                )
+                            }
                         }
                     }
                 },
@@ -412,7 +440,13 @@ private fun VacunaFormContent(
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
                 } else {
-                    Text(text = "Guardar vacuna", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(text = if (onDraftSaved != null) "Verificar información" else "Guardar vacuna", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (onRemoveDraft != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                TextButton(onClick = { onRemoveDraft(); onBack() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = "Quitar de la lista", color = Color(0xFFC0392B), fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))

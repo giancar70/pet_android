@@ -3,7 +3,9 @@ package com.petdrive.app.features.deworming
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.petdrive.app.core.model.CreateDewormingApplicationRequest
+import com.petdrive.app.core.model.RegisterDewormingsFromDocumentRequest
 import com.petdrive.app.core.model.DewormingApplication
+import com.petdrive.app.core.model.UpdateDewormingApplicationRequest
 import com.petdrive.app.core.network.ApiClient
 import com.petdrive.app.core.network.ApiEndpoints
 import com.petdrive.app.core.network.ApiError
@@ -25,6 +27,13 @@ sealed interface DewormingListUiState {
     data class Error(val message: String) : DewormingListUiState
 }
 
+sealed interface RegisterDewormingsUiState {
+    data object Idle : RegisterDewormingsUiState
+    data object Loading : RegisterDewormingsUiState
+    data class Success(val applications: List<DewormingApplication>) : RegisterDewormingsUiState
+    data class Error(val message: String) : RegisterDewormingsUiState
+}
+
 sealed interface DewormingDetailUiState {
     data object Loading : DewormingDetailUiState
     data class Loaded(val application: DewormingApplication) : DewormingDetailUiState
@@ -38,6 +47,13 @@ sealed interface DeleteDewormingUiState {
     data class Error(val message: String) : DeleteDewormingUiState
 }
 
+sealed interface UpdateDewormingUiState {
+    data object Idle : UpdateDewormingUiState
+    data object Loading : UpdateDewormingUiState
+    data class Success(val application: DewormingApplication) : UpdateDewormingUiState
+    data class Error(val message: String) : UpdateDewormingUiState
+}
+
 class DewormingViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateDewormingUiState>(CreateDewormingUiState.Idle)
     val createState: StateFlow<CreateDewormingUiState> = _createState.asStateFlow()
@@ -45,11 +61,17 @@ class DewormingViewModel : ViewModel() {
     private val _listState = MutableStateFlow<DewormingListUiState>(DewormingListUiState.Loading)
     val listState: StateFlow<DewormingListUiState> = _listState.asStateFlow()
 
+    private val _registerFromDocumentState = MutableStateFlow<RegisterDewormingsUiState>(RegisterDewormingsUiState.Idle)
+    val registerFromDocumentState: StateFlow<RegisterDewormingsUiState> = _registerFromDocumentState.asStateFlow()
+
     private val _detailState = MutableStateFlow<DewormingDetailUiState>(DewormingDetailUiState.Loading)
     val detailState: StateFlow<DewormingDetailUiState> = _detailState.asStateFlow()
 
     private val _deleteState = MutableStateFlow<DeleteDewormingUiState>(DeleteDewormingUiState.Idle)
     val deleteState: StateFlow<DeleteDewormingUiState> = _deleteState.asStateFlow()
+
+    private val _updateState = MutableStateFlow<UpdateDewormingUiState>(UpdateDewormingUiState.Idle)
+    val updateState: StateFlow<UpdateDewormingUiState> = _updateState.asStateFlow()
 
     // Tracks which pet's list is currently held in _listState so fetchDesparasitaciones
     // can skip a redundant network call when nothing has changed -- see that function.
@@ -130,6 +152,33 @@ class DewormingViewModel : ViewModel() {
         }
     }
 
+    // Confirms the (possibly user-edited) list of deworming applications detected on a
+    // Cartilla/Pasaporte scan, creating one DewormingApplication per entry in a single
+    // request -- see DewormingApplicationBulkCreateFromDocumentView (apps/pet/views.py).
+    fun registerFromDocument(petId: String, documentId: String, applications: List<CreateDewormingApplicationRequest>) {
+        _registerFromDocumentState.value = RegisterDewormingsUiState.Loading
+        viewModelScope.launch {
+            try {
+                val created: List<DewormingApplication> = ApiClient.post(
+                    ApiEndpoints.petDocumentRegisterDewormings(petId, documentId),
+                    RegisterDewormingsFromDocumentRequest(dewormings = applications),
+                )
+                _registerFromDocumentState.value = RegisterDewormingsUiState.Success(created)
+                (_listState.value as? DewormingListUiState.Loaded)?.let {
+                    _listState.value = DewormingListUiState.Loaded(created + it.applications)
+                }
+            } catch (e: ApiError.ServerError) {
+                _registerFromDocumentState.value = RegisterDewormingsUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _registerFromDocumentState.value = RegisterDewormingsUiState.Error(e.message ?: "No se pudieron registrar las desparasitaciones.")
+            }
+        }
+    }
+
+    fun resetRegisterFromDocumentState() {
+        _registerFromDocumentState.value = RegisterDewormingsUiState.Idle
+    }
+
     fun resetCreateState() {
         _createState.value = CreateDewormingUiState.Idle
     }
@@ -156,5 +205,36 @@ class DewormingViewModel : ViewModel() {
 
     fun resetDeleteState() {
         _deleteState.value = DeleteDewormingUiState.Idle
+    }
+
+    // Edits the renewal date on an existing application in place
+    // (DesparasitacionDetailScreen's "Guardar") -- unlike "Renovar", which creates a
+    // brand new application and leaves this one untouched (see
+    // DewormingApplicationSerializer.create(), which no longer auto-replaces).
+    fun updateNextDueOn(petId: String, applicationId: String, nextDueOnIso: String) {
+        _updateState.value = UpdateDewormingUiState.Loading
+        viewModelScope.launch {
+            try {
+                val application: DewormingApplication = ApiClient.patch(
+                    ApiEndpoints.petDewormingApplicationDetail(petId, applicationId),
+                    UpdateDewormingApplicationRequest(nextDueOn = nextDueOnIso),
+                )
+                _updateState.value = UpdateDewormingUiState.Success(application)
+                if (_detailState.value is DewormingDetailUiState.Loaded) {
+                    _detailState.value = DewormingDetailUiState.Loaded(application)
+                }
+                (_listState.value as? DewormingListUiState.Loaded)?.let {
+                    _listState.value = DewormingListUiState.Loaded(it.applications.map { a -> if (a.id == application.id) application else a })
+                }
+            } catch (e: ApiError.ServerError) {
+                _updateState.value = UpdateDewormingUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _updateState.value = UpdateDewormingUiState.Error(e.message ?: "No se pudo actualizar la desparasitación.")
+            }
+        }
+    }
+
+    fun resetUpdateState() {
+        _updateState.value = UpdateDewormingUiState.Idle
     }
 }

@@ -16,8 +16,8 @@ android {
         applicationId = "com.petdrive.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.0.11"
+        versionCode = 15
+        versionName = "0.0.14"
     }
 
     buildTypes {
@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.security.crypto)
     implementation(libs.coil.compose)
+    implementation(libs.mlkit.document.scanner)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)

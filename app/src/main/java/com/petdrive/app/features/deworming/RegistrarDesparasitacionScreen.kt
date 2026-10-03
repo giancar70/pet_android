@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.core.model.DewormingType
 import com.petdrive.app.core.model.Pet
+import com.petdrive.app.features.files.DewormingDraft
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
@@ -90,9 +91,16 @@ private sealed interface Duracion {
 fun RegistrarDesparasitacionScreen(
     selectedPet: Pet?,
     userFullName: String?,
+    // Set only when opened from paso5 (RevisarInformacionDetectadaScreen) to verify/edit
+    // an AI-detected deworming application: prefills the form and, on Guardar, hands the
+    // edited values back via onDraftSaved instead of calling the network -- nothing is
+    // registered until paso5's own "Guardar registros".
+    draft: DewormingDraft? = null,
+    onDraftSaved: ((DewormingDraft) -> Unit)? = null,
+    onRemoveDraft: (() -> Unit)? = null,
     onBack: () -> Unit,
-    onFinish: () -> Unit,
-    onViewActivity: () -> Unit,
+    onFinish: () -> Unit = {},
+    onViewActivity: () -> Unit = {},
     viewModel: DewormingViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<DesparasitacionStep>(DesparasitacionStep.Form) }
@@ -101,6 +109,9 @@ fun RegistrarDesparasitacionScreen(
         is DesparasitacionStep.Form -> DesparasitacionFormContent(
             selectedPet = selectedPet,
             userFullName = userFullName,
+            draft = draft,
+            onDraftSaved = onDraftSaved,
+            onRemoveDraft = onRemoveDraft,
             onBack = onBack,
             onSaved = { step = DesparasitacionStep.Success },
             viewModel = viewModel,
@@ -119,6 +130,9 @@ fun RegistrarDesparasitacionScreen(
 private fun DesparasitacionFormContent(
     selectedPet: Pet?,
     userFullName: String?,
+    draft: DewormingDraft? = null,
+    onDraftSaved: ((DewormingDraft) -> Unit)? = null,
+    onRemoveDraft: (() -> Unit)? = null,
     onBack: () -> Unit,
     onSaved: () -> Unit,
     viewModel: DewormingViewModel,
@@ -126,18 +140,29 @@ private fun DesparasitacionFormContent(
     val createState by viewModel.createState.collectAsState()
     val listState by viewModel.listState.collectAsState()
 
-    var tipo by remember { mutableStateOf(DewormingType.INTERNAL) }
-    var date by remember { mutableStateOf(LocalDate.now()) }
-    var producto by remember { mutableStateOf("") }
-    var duracion by remember { mutableStateOf<Duracion>(Duracion.OneMonth) }
-    var duracionMesesCustom by remember { mutableStateOf("") }
-    var observaciones by remember { mutableStateOf("") }
+    var tipo by remember { mutableStateOf(DewormingType.entries.firstOrNull { it.apiValue == draft?.dewormingType } ?: DewormingType.INTERNAL) }
+    var date by remember { mutableStateOf(draft?.appliedOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
+    var producto by remember { mutableStateOf(draft?.productName ?: "") }
+    var duracion by remember {
+        mutableStateOf<Duracion>(
+            when (draft?.durationMonths) {
+                null -> Duracion.OneMonth
+                1 -> Duracion.OneMonth
+                3 -> Duracion.ThreeMonths
+                else -> Duracion.Custom
+            },
+        )
+    }
+    var duracionMesesCustom by remember {
+        mutableStateOf(draft?.durationMonths?.takeIf { it != 1 && it != 3 }?.toString() ?: "")
+    }
+    var observaciones by remember { mutableStateOf(draft?.notes ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     var pendingWarningDate by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(selectedPet?.id) {
-        selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
+        if (onDraftSaved == null) selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
     }
 
     // The nearest not-yet-due "próxima desparasitación" already on record, regardless of
@@ -153,13 +178,15 @@ private fun DesparasitacionFormContent(
         }
         ?.minOrNull()
 
+    fun currentDuracionMeses() = when (duracion) {
+        Duracion.OneMonth -> 1L
+        Duracion.ThreeMonths -> 3L
+        Duracion.Custom -> duracionMesesCustom.toLongOrNull()
+    }
+
     fun submit() {
         val petId = selectedPet?.id ?: return
-        val duracionMeses = when (duracion) {
-            Duracion.OneMonth -> 1L
-            Duracion.ThreeMonths -> 3L
-            Duracion.Custom -> duracionMesesCustom.toLongOrNull()
-        }
+        val duracionMeses = currentDuracionMeses()
         viewModel.createDesparasitacion(
             petId = petId,
             dewormingType = tipo.apiValue,
@@ -181,10 +208,11 @@ private fun DesparasitacionFormContent(
     // only a later, genuine transition (Loading -> Success from this screen's own save)
     // triggers onSaved.
     LaunchedEffect(Unit) {
-        viewModel.resetCreateState()
+        if (onDraftSaved == null) viewModel.resetCreateState()
     }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
+        if (onDraftSaved != null) return@LaunchedEffect
         if (!consumedInitialState) {
             consumedInitialState = true
             return@LaunchedEffect
@@ -416,15 +444,25 @@ private fun DesparasitacionFormContent(
             val isLoading = createState is CreateDewormingUiState.Loading
             Button(
                 onClick = {
-                    val duracionMeses = when (duracion) {
-                        Duracion.OneMonth -> 1L
-                        Duracion.ThreeMonths -> 3L
-                        Duracion.Custom -> duracionMesesCustom.toLongOrNull()
-                    }
+                    val duracionMeses = currentDuracionMeses()
                     when {
-                        selectedPet?.id == null -> validationError = "Agrega una mascota primero."
+                        onDraftSaved == null && selectedPet?.id == null -> validationError = "Agrega una mascota primero."
                         duracion is Duracion.Custom && duracionMeses == null ->
                             validationError = "Ingresa la duración en meses."
+                        onDraftSaved != null -> {
+                            validationError = null
+                            onDraftSaved(
+                                DewormingDraft(
+                                    dewormingType = tipo.apiValue,
+                                    productName = producto.takeIf { it.isNotBlank() },
+                                    appliedOn = date.toString(),
+                                    nextDueOn = duracionMeses?.let { date.plusMonths(it).toString() },
+                                    durationMonths = duracionMeses?.toInt(),
+                                    notes = observaciones.takeIf { it.isNotBlank() },
+                                ),
+                            )
+                            onBack()
+                        }
                         upcomingDueDate != null -> {
                             validationError = null
                             pendingWarningDate = upcomingDueDate
@@ -445,7 +483,13 @@ private fun DesparasitacionFormContent(
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
                 } else {
-                    Text(text = "Guardar desparasitación", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(text = if (onDraftSaved != null) "Verificar información" else "Guardar desparasitación", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (onRemoveDraft != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                TextButton(onClick = { onRemoveDraft(); onBack() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = "Quitar de la lista", color = Color(0xFFC0392B), fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))

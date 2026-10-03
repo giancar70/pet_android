@@ -3,8 +3,10 @@ package com.petdrive.app.features.vaccines
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,19 +20,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,8 +57,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.model.VaccineDose
 import com.petdrive.app.core.util.relativeDateLabel
+import com.petdrive.app.features.incidents.spanishDate
 import com.petdrive.app.features.main.GreetingHeader
-import com.petdrive.app.features.main.needsRenewal
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
@@ -77,7 +89,10 @@ fun VacunaDetailScreen(
     // sitting in deleteState when this screen re-enters for a different dose; ignore the
     // first firing regardless of what it holds, and only act on a later, genuine Success
     // from this screen's own delete (same race-avoidance pattern as RegistrarVacunaScreen).
-    LaunchedEffect(Unit) { viewModel.resetDeleteState() }
+    LaunchedEffect(Unit) {
+        viewModel.resetDeleteState()
+        viewModel.resetUpdateState()
+    }
     var consumedInitialDeleteState by remember { mutableStateOf(false) }
     LaunchedEffect(deleteState) {
         if (!consumedInitialDeleteState) {
@@ -115,27 +130,12 @@ fun VacunaDetailScreen(
                     color = MaterialTheme.colorScheme.error,
                     fontSize = 14.sp,
                 )
-                is VaccineDoseDetailUiState.Loaded -> VacunaDetailCard(state.dose)
-            }
-
-            val loadedDose = (detailState as? VaccineDoseDetailUiState.Loaded)?.dose
-            val isExpired = loadedDose != null &&
-                loadedDose.status != "replaced" &&
-                needsRenewal(loadedDose.nextDueOn)
-            if (isExpired && selectedPet?.canEdit != false) {
-                Spacer(modifier = Modifier.height(20.dp))
-                Button(
-                    onClick = onRenovar,
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                ) {
-                    Icon(Icons.Filled.Autorenew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Renovar", fontWeight = FontWeight.Bold)
-                }
+                is VaccineDoseDetailUiState.Loaded -> VacunaDetailContent(
+                    selectedPet = selectedPet,
+                    dose = state.dose,
+                    viewModel = viewModel,
+                    onRenovar = onRenovar,
+                )
             }
 
             if (deleteState is DeleteVaccineDoseUiState.Error) {
@@ -194,16 +194,55 @@ fun VacunaDetailScreen(
     }
 }
 
+// Holds the renewal-date edit state, scoped to (and reset whenever) the loaded dose
+// changes -- "Guardar" PATCHes just that field in place (VaccinesViewModel.updateNextDueOn);
+// it never touches the rest of the record. "Renovar" is the separate, always-available
+// path into "Registrar vacuna" for logging a brand new dose instead.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VacunaDetailCard(dose: VaccineDose) {
+private fun VacunaDetailContent(
+    selectedPet: Pet?,
+    dose: VaccineDose,
+    viewModel: VaccinesViewModel,
+    onRenovar: () -> Unit,
+) {
+    val updateState by viewModel.updateState.collectAsState()
+    var nextDueDate by remember(dose.id) {
+        mutableStateOf(dose.nextDueOn?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() })
+    }
+    var showDatePicker by remember(dose.id) { mutableStateOf(false) }
+    val hasChanges = nextDueDate?.toString() != dose.nextDueOn?.takeIf { it.isNotBlank() }
+    val canEdit = selectedPet?.canEdit != false
+    val canRenovar = dose.status != "replaced"
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (nextDueDate ?: LocalDate.now())
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = datePickerState.selectedDateMillis
+                    if (millis != null) {
+                        nextDueDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     DetailCard {
         DetailRow("Vacuna", dose.vaccine)
         HorizontalDivider(color = CardBorder)
         DetailRow("Fecha de aplicación", formatIsoDate(dose.appliedOn))
-        dose.nextDueOn?.takeIf { it.isNotBlank() }?.let {
-            HorizontalDivider(color = CardBorder)
-            DetailRow("Próxima vacunación", formatIsoDate(it))
-        }
         dose.lotNumber?.takeIf { it.isNotBlank() }?.let {
             HorizontalDivider(color = CardBorder)
             DetailRow("N° de lote", it)
@@ -211,6 +250,97 @@ private fun VacunaDetailCard(dose: VaccineDose) {
         dose.notes?.takeIf { it.isNotBlank() }?.let {
             HorizontalDivider(color = CardBorder)
             DetailRow("Observaciones", it)
+        }
+    }
+
+    Spacer(modifier = Modifier.height(16.dp))
+    Text(text = "Fecha de renovación", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    Spacer(modifier = Modifier.height(8.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.weight(1f)) {
+            OutlinedTextField(
+                value = nextDueDate?.let { spanishDate(it) } ?: "",
+                onValueChange = {},
+                readOnly = true,
+                enabled = canEdit,
+                singleLine = true,
+                placeholder = { Text("Selecciona una fecha") },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = CardBorder,
+                    focusedBorderColor = BrandGreen,
+                    disabledBorderColor = CardBorder,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (canEdit) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable { showDatePicker = true },
+                )
+            }
+        }
+        if (canEdit) {
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(BrandGreen, RoundedCornerShape(12.dp))
+                    .clickable { showDatePicker = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White)
+            }
+        }
+    }
+
+    if (updateState is UpdateVaccineDoseUiState.Error) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = (updateState as UpdateVaccineDoseUiState.Error).message,
+            color = MaterialTheme.colorScheme.error,
+            fontSize = 13.sp,
+        )
+    }
+
+    if (canEdit && hasChanges) {
+        Spacer(modifier = Modifier.height(12.dp))
+        val isSaving = updateState is UpdateVaccineDoseUiState.Loading
+        Button(
+            onClick = {
+                val petId = selectedPet?.id ?: return@Button
+                val date = nextDueDate ?: return@Button
+                viewModel.updateNextDueOn(petId, dose.id, date.toString())
+            },
+            enabled = !isSaving && nextDueDate != null,
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
+            } else {
+                Text(text = "Guardar", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    if (canRenovar && canEdit) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onRenovar,
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+        ) {
+            Icon(Icons.Filled.Autorenew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = "Renovar", fontWeight = FontWeight.Bold)
         }
     }
 }

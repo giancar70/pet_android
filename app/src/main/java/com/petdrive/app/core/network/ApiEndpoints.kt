@@ -32,8 +32,11 @@ object ApiEndpoints {
     fun petConsultations(petId: String) = "/pets/$petId/consultations/"
     fun petConsultationDetail(petId: String, consultationId: String) = "/pets/$petId/consultations/$consultationId/"
     fun petDocuments(petId: String) = "/pets/$petId/documents/"
+    fun petDocumentsAnalyze(petId: String) = "/pets/$petId/documents/analyze/"
     fun petDocumentDetail(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/"
     fun petDocumentRegisterVaccines(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/register-vaccines/"
+    fun petDocumentsAnalyzeCartilla(petId: String) = "/pets/$petId/documents/analyze-cartilla/"
+    fun petDocumentRegisterDewormings(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/register-dewormings/"
     fun petEventDocuments(petId: String, eventId: String) = "/pets/$petId/documents/?event=$eventId"
     fun petActivityLog(petId: String) = "/pets/$petId/activity-log/"
 }
