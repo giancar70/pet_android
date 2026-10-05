@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,6 +42,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -67,7 +71,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.CartillaAnalysis
+import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.model.PetSpecies
+import com.petdrive.app.features.deworming.DewormingViewModel
+import com.petdrive.app.features.files.EscanearPasaporteScreen
+import com.petdrive.app.features.files.FilesViewModel
+import com.petdrive.app.features.files.RevisarInformacionDetectadaScreen
+import com.petdrive.app.features.vaccines.VaccinesViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -99,6 +110,18 @@ fun RegisterPetScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
+    // "Crear desde Cartilla / Pasaporte": scanning only prefills this form's own fields
+    // (species/name/birth date) locally -- nothing is sent until "Crear mascota" below.
+    // Any vaccines/deworming the scan also found, plus the scanned image itself, are
+    // stashed here and only acted on once the pet actually exists (see the Success
+    // branch below), by handing off to the same RevisarInformacionDetectadaScreen the
+    // rest of the app already uses for an existing pet.
+    var showScan by remember { mutableStateOf(false) }
+    var pendingAnalysis by remember { mutableStateOf<CartillaAnalysis?>(null) }
+    var pendingImageBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var pendingFileName by remember { mutableStateOf("") }
+    var reviewPet by remember { mutableStateOf<Pet?>(null) }
+
     // PetsViewModel is shared (Activity-scoped, no Navigation-Compose back stack), so a
     // prior successful creation can still be sitting in createState when this screen
     // re-enters (e.g. "add another pet" from the switcher). Resetting it here races the
@@ -129,7 +152,16 @@ fun RegisterPetScreen(
             consumedInitialState = true
             return@LaunchedEffect
         }
-        if (createState is CreatePetUiState.Success) onDone()
+        val state = createState
+        if (state is CreatePetUiState.Success) {
+            if (pendingAnalysis != null) {
+                // Review (and optionally save) the detected vaccines/dewormings on the
+                // pet that just got created, instead of finishing immediately.
+                reviewPet = state.pet
+            } else {
+                onDone()
+            }
+        }
     }
 
     if (showDatePicker) {
@@ -159,6 +191,48 @@ fun RegisterPetScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    if (showScan) {
+        EscanearPasaporteScreen(
+            userFullName = null,
+            onBack = { showScan = false },
+            onAnalyzed = { analysis, bytes, scanFileName ->
+                pendingAnalysis = analysis
+                pendingImageBytes = bytes
+                pendingFileName = scanFileName
+                analysis.petInfo.species?.let { species ->
+                    PetSpecies.entries.find { it.apiValue == species }?.let { selectedSpecies = it }
+                }
+                analysis.petInfo.name?.takeIf { it.isNotBlank() }?.let { name = it }
+                analysis.petInfo.birthDate?.let { iso ->
+                    runCatching { LocalDate.parse(iso) }.getOrNull()?.let { date ->
+                        birthDateIso = iso
+                        birthDateDisplay = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    }
+                }
+                showScan = false
+            },
+        )
+        return
+    }
+
+    val petForReview = reviewPet
+    val analysisForReview = pendingAnalysis
+    if (petForReview != null && analysisForReview != null) {
+        RevisarInformacionDetectadaScreen(
+            selectedPet = petForReview,
+            userFullName = null,
+            analysis = analysisForReview,
+            onBack = onDone,
+            onSaved = { _, _ -> onDone() },
+            mergedImageBytes = { pendingImageBytes ?: ByteArray(0) },
+            fileName = pendingFileName,
+            filesViewModel = viewModel<FilesViewModel>(),
+            vaccinesViewModel = viewModel<VaccinesViewModel>(),
+            dewormingViewModel = viewModel<DewormingViewModel>(),
+        )
+        return
     }
 
     Column(
@@ -213,6 +287,45 @@ fun RegisterPetScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = PhotoCircleBg,
+            onClick = { showScan = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.DocumentScanner, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(28.dp))
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Crear desde Cartilla / Pasaporte", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Escanea el documento y completamos los datos por ti",
+                        color = SubtitleGray,
+                        fontSize = 12.sp,
+                    )
+                }
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = BrandGreen)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HorizontalDivider(modifier = Modifier.weight(1f), color = SubtitleGray.copy(alpha = 0.3f))
+            Text(
+                text = "o completa los datos manualmente",
+                color = SubtitleGray,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 10.dp),
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f), color = SubtitleGray.copy(alpha = 0.3f))
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

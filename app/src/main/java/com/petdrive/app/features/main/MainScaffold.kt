@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.model.Reminder
+import com.petdrive.app.core.storage.TokenStore
 import com.petdrive.app.features.account.MiCuentaScreen
 import com.petdrive.app.features.activitylog.ActivityLogScreen
 import com.petdrive.app.core.util.LegalUrls
@@ -101,6 +102,16 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     }
 
     val petsState by petsViewModel.uiState.collectAsState()
+    // Same stale-token gap PetsGateScreen guards against, but here for a token that goes
+    // stale *while already inside* the app shell (e.g. rotated by a later login elsewhere
+    // mid-session) -- without this, fetchPets()'s Unauthorized state just leaves every
+    // tab looking permanently empty with no indication why.
+    LaunchedEffect(petsState) {
+        if (petsState is PetsUiState.Unauthorized) {
+            TokenStore.token = null
+            onLoggedOut()
+        }
+    }
     val selectedPetId by petsViewModel.selectedPetId.collectAsState()
     val userState by userViewModel.uiState.collectAsState()
 

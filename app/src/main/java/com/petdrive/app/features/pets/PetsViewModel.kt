@@ -23,6 +23,11 @@ sealed interface PetsUiState {
     data object Loading : PetsUiState
     data class Loaded(val pets: List<Pet>) : PetsUiState
     data class Error(val message: String) : PetsUiState
+    // Distinct from Error: the stored token turned out to be stale/invalid (e.g. rotated
+    // by a later login elsewhere, but still sitting in TokenStore on this device). Callers
+    // that care (PetsGateScreen) clear the token and route back to Login instead of
+    // getting stuck here forever -- see that screen's LaunchedEffect(uiState).
+    data object Unauthorized : PetsUiState
 }
 
 sealed interface CreatePetUiState {
@@ -115,6 +120,9 @@ class PetsViewModel : ViewModel() {
             _selectedPetId.value = newSelectedId
             PetPreferences.selectedPetId = newSelectedId
             pets
+        } catch (e: ApiError.Unauthorized) {
+            _uiState.value = PetsUiState.Unauthorized
+            null
         } catch (e: ApiError.ServerError) {
             _uiState.value = PetsUiState.Error(e.errorMessage)
             null

@@ -169,6 +169,32 @@ class FilesViewModel : ViewModel() {
         _analyzeCartillaState.value = AnalyzeCartillaUiState.Idle
     }
 
+    // Same contract as analyzeCartilla, but for the "Crear desde Cartilla / Pasaporte"
+    // button on the pet-creation screen: there's no pet yet to scope the request to, so
+    // this hits the pet-less endpoint instead -- see DocumentAnalyzeCartillaNewPetView
+    // (apps/files/views.py). Shares analyzeCartillaState with the pet-scoped version
+    // since the request/response shape is identical and only one can be in flight at a
+    // time per screen.
+    fun analyzeCartillaForNewPet(fileBytes: ByteArray, fileName: String, mimeType: String) {
+        _analyzeCartillaState.value = AnalyzeCartillaUiState.Loading
+        viewModelScope.launch {
+            try {
+                val analysis: CartillaAnalysis = ApiClient.postMultipartFile(
+                    path = ApiEndpoints.DOCUMENTS_ANALYZE_CARTILLA_NEW_PET,
+                    fields = emptyMap(),
+                    fileBytes = fileBytes,
+                    fileName = fileName,
+                    mimeType = mimeType,
+                )
+                _analyzeCartillaState.value = AnalyzeCartillaUiState.Success(analysis)
+            } catch (e: ApiError.ServerError) {
+                _analyzeCartillaState.value = AnalyzeCartillaUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _analyzeCartillaState.value = AnalyzeCartillaUiState.Error(e.message ?: "No se pudo analizar el documento.")
+            }
+        }
+    }
+
     fun uploadDocument(
         petId: String,
         fileBytes: ByteArray,

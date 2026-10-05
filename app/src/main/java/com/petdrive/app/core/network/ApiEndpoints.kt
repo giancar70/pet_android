@@ -36,6 +36,7 @@ object ApiEndpoints {
     fun petDocumentDetail(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/"
     fun petDocumentRegisterVaccines(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/register-vaccines/"
     fun petDocumentsAnalyzeCartilla(petId: String) = "/pets/$petId/documents/analyze-cartilla/"
+    const val DOCUMENTS_ANALYZE_CARTILLA_NEW_PET = "/pets/documents/analyze-cartilla-new-pet/"
     fun petDocumentRegisterDewormings(petId: String, documentId: String) = "/pets/$petId/documents/$documentId/register-dewormings/"
     fun petEventDocuments(petId: String, eventId: String) = "/pets/$petId/documents/?event=$eventId"
     fun petActivityLog(petId: String) = "/pets/$petId/activity-log/"

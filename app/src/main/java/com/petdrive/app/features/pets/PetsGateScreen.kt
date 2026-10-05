@@ -25,6 +25,7 @@ import com.petdrive.app.core.model.User
 import com.petdrive.app.core.network.ApiClient
 import com.petdrive.app.core.network.ApiEndpoints
 import com.petdrive.app.core.notifications.PushTokenManager
+import com.petdrive.app.core.storage.TokenStore
 import kotlinx.coroutines.launch
 
 private val BrandGreen = Color(0xFF406E5F)
@@ -33,6 +34,7 @@ private val BrandGreen = Color(0xFF406E5F)
 fun PetsGateScreen(
     onHasPets: () -> Unit,
     onNoPets: () -> Unit,
+    onUnauthorized: () -> Unit,
     viewModel: PetsViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -61,11 +63,14 @@ fun PetsGateScreen(
         when (val state = uiState) {
             is PetsUiState.Loaded -> if (state.pets.isEmpty()) onNoPets() else onHasPets()
             is PetsUiState.Error -> {
-                // If we get an error here, it's likely a 401 (token expired/cleared).
-                // We shouldn't proceed to Main; staying here is fine as the top-level
-                // app state should eventually react to the auth failure or the user
-                // will be sent back to Login by the auth gate in MainActivity.
-                // For now, we just don't navigate to Main.
+                // A transient/server error here (not a dead token -- see Unauthorized
+                // below) leaves the user stuck on this loading screen with no retry.
+                // Not fixed here: out of scope for the stale-token bug this was found
+                // alongside, but worth a real retry affordance later.
+            }
+            is PetsUiState.Unauthorized -> {
+                TokenStore.token = null
+                onUnauthorized()
             }
             PetsUiState.Loading -> Unit
         }

@@ -70,7 +70,14 @@ class MainActivity : ComponentActivity() {
                         val lastSelectedPet = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
                         val pets = petsViewModel.fetchPetsAndAwait(selectPetId = lastSelectedPet)
                         when {
-                            pets == null -> AppScreen.Login
+                            // A stale token (e.g. rotated by a later login elsewhere, but
+                            // still sitting in TokenStore on this device) made this fetch
+                            // fail -- clear it rather than leaving it around to be
+                            // silently overwritten by the next successful login.
+                            pets == null -> {
+                                TokenStore.token = null
+                                AppScreen.Login
+                            }
                             pets.isEmpty() -> AppScreen.RegisterPet
                             else -> AppScreen.Main
                         }
@@ -122,6 +129,7 @@ class MainActivity : ComponentActivity() {
                         AppScreen.CheckingPets -> PetsGateScreen(
                             onHasPets = { screen = AppScreen.Main },
                             onNoPets = { screen = AppScreen.RegisterPet },
+                            onUnauthorized = { screen = AppScreen.Login },
                         )
                         AppScreen.RegisterPet -> RegisterPetScreen(
                             onDone = { screen = AppScreen.Main },

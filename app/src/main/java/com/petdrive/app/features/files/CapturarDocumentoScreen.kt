@@ -89,7 +89,7 @@ private val BrandGreen = Color(0xFF406E5F)
 private val SubtitleGray = Color(0xFF666666)
 private val CardBorder = Color(0xFFEFEFF4)
 private val ScanBlue = Color(0xFF3B82F6)
-private const val MAX_PAGES = 20
+internal const val MAX_PAGES = 20
 
 private sealed interface ScanStep {
     data object TypeSelection : ScanStep
@@ -107,7 +107,7 @@ private sealed interface ScanAction {
     data class Replace(val index: Int) : ScanAction
 }
 
-private tailrec fun Context.findActivity(): Activity? = when (this) {
+internal tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
@@ -368,7 +368,7 @@ private fun DocumentTypeSelectionStep(
 }
 
 @Composable
-private fun ScanningStep(error: String?, onBack: () -> Unit) {
+internal fun ScanningStep(error: String?, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     Column(
         modifier = Modifier
@@ -389,7 +389,7 @@ private fun ScanningStep(error: String?, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ScanPreviewStep(
+internal fun ScanPreviewStep(
     selectedPet: Pet?,
     userFullName: String?,
     pages: List<Bitmap>,
@@ -522,7 +522,7 @@ private fun ScanToolButton(icon: ImageVector, label: String, tint: Color, onClic
 // paso4: simplified per the new reference screen (just a spinner + "Procesando...", no
 // per-step checklist).
 @Composable
-private fun AnalizandoStep(
+internal fun AnalizandoStep(
     selectedPet: Pet?,
     userFullName: String?,
     error: String?,
