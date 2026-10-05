@@ -16,8 +16,8 @@ android {
         applicationId = "com.petdrive.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "0.0.15"
+        versionCode = 18
+        versionName = "0.0.17"
     }
 
     buildTypes {

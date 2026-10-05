@@ -5,19 +5,32 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.R
@@ -38,6 +51,9 @@ fun PetsGateScreen(
     viewModel: PetsViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // Remembered so "Reintentar" can retry with the same hint rather than losing it --
+    // the /auth/user/ lookup that produces it only needs to run once per gate entry.
+    var selectPetIdHint by remember { mutableStateOf<String?>(null) }
 
     // PetsViewModel is Activity-scoped and outlives a single login session (no
     // Navigation-Compose to give this screen its own fresh instance), so its list
@@ -55,19 +71,14 @@ fun PetsGateScreen(
         // notifications every time the app reaches this gate (cold start, post-login,
         // post-register), which is the same point Android's own FCM token can change.
         launch { PushTokenManager.registerCurrentToken() }
-        val lastSelectedPet = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
-        viewModel.fetchPets(selectPetId = lastSelectedPet)
+        selectPetIdHint = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
+        viewModel.fetchPets(selectPetId = selectPetIdHint)
     }
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is PetsUiState.Loaded -> if (state.pets.isEmpty()) onNoPets() else onHasPets()
-            is PetsUiState.Error -> {
-                // A transient/server error here (not a dead token -- see Unauthorized
-                // below) leaves the user stuck on this loading screen with no retry.
-                // Not fixed here: out of scope for the stale-token bug this was found
-                // alongside, but worth a real retry affordance later.
-            }
+            is PetsUiState.Error -> Unit // shown inline below, with a retry -- see the Box content.
             is PetsUiState.Unauthorized -> {
                 TokenStore.token = null
                 onUnauthorized()
@@ -90,7 +101,39 @@ fun PetsGateScreen(
                 modifier = Modifier.width(180.dp),
             )
             Spacer(modifier = Modifier.height(32.dp))
-            CircularProgressIndicator(color = BrandGreen)
+            when (val state = uiState) {
+                is PetsUiState.Error -> {
+                    // A transient/server error here (e.g. a network blip) used to leave
+                    // the user stuck on a bare spinner forever, with no indication
+                    // anything had gone wrong and no way out short of force-quitting the
+                    // app. Now offers an actual retry, plus a way back to Login if
+                    // retrying doesn't help.
+                    Text(
+                        text = state.message,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 32.dp),
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = { viewModel.fetchPets(selectPetId = selectPetIdHint) },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                    ) {
+                        Text(text = "Reintentar", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = {
+                        TokenStore.token = null
+                        onUnauthorized()
+                    }) {
+                        Text(text = "Cerrar sesión", color = BrandGreen)
+                    }
+                }
+                else -> CircularProgressIndicator(color = BrandGreen)
+            }
         }
     }
 }
