@@ -50,6 +50,16 @@ fun PetsGateScreen(
     onUnauthorized: () -> Unit,
     viewModel: PetsViewModel = viewModel(),
 ) {
+    // PetsViewModel is Activity-scoped (no Navigation-Compose to give this screen its own
+    // fresh instance), so uiState can still be holding a terminal value -- e.g.
+    // Unauthorized -- left over from an earlier, unrelated visit to this gate (a stale
+    // token from a previous session, a transient error, ...). Reset it synchronously here,
+    // during composition and before any effect below runs, so LaunchedEffect(uiState)'s
+    // very first collection can't act on that leftover value instead of a fresh fetch --
+    // otherwise a stale Unauthorized gets acted on (clearing a token this gate's own fresh
+    // login just issued, and bouncing straight back to Login) before fetchPets() below ever
+    // gets a chance to run.
+    remember { viewModel.resetToLoading() }
     val uiState by viewModel.uiState.collectAsState()
     // Remembered so "Reintentar" can retry with the same hint rather than losing it --
     // the /auth/user/ lookup that produces it only needs to run once per gate entry.

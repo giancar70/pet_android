@@ -91,6 +91,18 @@ class PetsViewModel : ViewModel() {
         fetchPets()
     }
 
+    // Synchronous reset for PetsGateScreen: that screen's LaunchedEffect(uiState) collects
+    // whatever uiState this Activity-scoped singleton is currently holding the instant it
+    // enters composition -- which, after a previous failed visit (e.g. a stale token from
+    // an earlier session), can still be Unauthorized. fetchPets() alone doesn't guard
+    // against this: its own Loading reset is sequenced after an awaited /auth/user/ lookup
+    // in PetsGateScreen, so a stale Unauthorized gets acted on (clearing a just-issued,
+    // perfectly valid token and bouncing back to Login) before the fresh fetch ever starts.
+    // Calling this synchronously during composition, before any effect runs, closes that gap.
+    fun resetToLoading() {
+        _uiState.value = PetsUiState.Loading
+    }
+
     fun fetchPets(selectPetId: String? = null) {
         // Don't clobber an already-Loaded list with Loading for a background refresh —
         // consumers (e.g. MainScaffold) treat non-Loaded state as "no pets", which would
