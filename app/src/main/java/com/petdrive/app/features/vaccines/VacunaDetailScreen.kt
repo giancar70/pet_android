@@ -213,7 +213,6 @@ private fun VacunaDetailContent(
     var showDatePicker by remember(dose.id) { mutableStateOf(false) }
     val hasChanges = nextDueDate?.toString() != dose.nextDueOn?.takeIf { it.isNotBlank() }
     val canEdit = selectedPet?.canEdit != false
-    val canRenovar = dose.status != "replaced"
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -328,7 +327,7 @@ private fun VacunaDetailContent(
         }
     }
 
-    if (canRenovar && canEdit) {
+    if (canEdit) {
         Spacer(modifier = Modifier.height(12.dp))
         Button(
             onClick = onRenovar,

@@ -214,9 +214,6 @@ private fun DesparasitacionDetailContent(
     var showDatePicker by remember(application.id) { mutableStateOf(false) }
     val hasChanges = nextDueDate?.toString() != application.nextDueOn?.takeIf { it.isNotBlank() }
     val canEdit = selectedPet?.canEdit != false
-    // Unlike vaccines, "Renovar" here isn't gated to being due soon -- always offered
-    // for an active (not yet superseded) record, per explicit request.
-    val canRenovar = application.status != "replaced"
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -331,7 +328,7 @@ private fun DesparasitacionDetailContent(
         }
     }
 
-    if (canRenovar && canEdit) {
+    if (canEdit) {
         Spacer(modifier = Modifier.height(12.dp))
         Button(
             onClick = onRenovar,

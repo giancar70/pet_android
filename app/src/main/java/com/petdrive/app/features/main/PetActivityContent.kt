@@ -74,6 +74,7 @@ import com.petdrive.app.features.reminders.RemindersViewModel
 import com.petdrive.app.features.vaccines.VaccinesListUiState
 import com.petdrive.app.features.vaccines.VaccinesViewModel
 import com.petdrive.app.ui.theme.PetProjectTheme
+import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -187,9 +188,7 @@ private fun VaccinesSection(
         is VaccinesListUiState.Loading -> LoadingRow()
         is VaccinesListUiState.Error -> ErrorRow(state.message)
         is VaccinesListUiState.Loaded -> {
-            // A dose replaced by a newer one of the same vaccine is superseded --
-            // hidden from the home summary (it still shows in Actividad's full history).
-            val activeDoses = state.doses.filter { it.status != "replaced" }
+            val activeDoses = latestPerVaccine(state.doses)
             if (activeDoses.isEmpty()) {
                 EmptyStateCard(
                     icon = Icons.Filled.Vaccines,
@@ -274,15 +273,34 @@ internal fun dueStatus(nextDueOnIso: String?): DueInfo? {
 // once something is due within a week, not only once it's actually overdue.
 internal fun needsRenewal(nextDueOnIso: String?): Boolean = (dueStatus(nextDueOnIso)?.daysUntil ?: Long.MAX_VALUE) <= 7
 
+// Dedupes to one record per vaccine, keeping the most recently created one. Status alone
+// can't drive this: editing a dose's renewal date in place (VacunaDetailScreen's
+// "Guardar") also sets status to "replaced", same as a genuinely new dose superseding an
+// old one -- but there's no newer record to fall back to in that case, so filtering by
+// status alone made the dose the user just updated vanish entirely instead of showing its
+// new date. Picking the latest-created record per vaccine name handles both cases.
+// Shared by VaccinesSection and InicioTab's TodoAlDiaBadge below -- both need "what's the
+// one current record per vaccine" for the same reason.
+internal fun latestPerVaccine(doses: List<VaccineDose>): List<VaccineDose> = doses
+    .groupBy { it.vaccine }
+    .values
+    .map { group -> group.maxBy { dose -> Instant.parse(dose.createdAt) } }
+    .sortedByDescending { Instant.parse(it.createdAt) }
+
+// Deworming counterpart of latestPerVaccine, deduped by product name instead.
+internal fun latestPerProduct(applications: List<DewormingApplication>): List<DewormingApplication> = applications
+    .groupBy { it.productName }
+    .values
+    .map { group -> group.maxBy { application -> Instant.parse(application.createdAt) } }
+    .sortedByDescending { Instant.parse(it.createdAt) }
+
 @Composable
 private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit, canEdit: Boolean, onOpen: (String) -> Unit) {
     when (state) {
         is DewormingListUiState.Loading -> LoadingRow()
         is DewormingListUiState.Error -> ErrorRow(state.message)
         is DewormingListUiState.Loaded -> {
-            // An application replaced by a newer one is superseded -- hidden from the
-            // home summary (it still shows in Actividad's full history).
-            val activeApplications = state.applications.filter { it.status != "replaced" }
+            val activeApplications = latestPerProduct(state.applications)
             if (activeApplications.isEmpty()) {
                 EmptyStateCard(
                     icon = Icons.Filled.Medication,
