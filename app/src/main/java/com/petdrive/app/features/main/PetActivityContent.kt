@@ -301,18 +301,27 @@ internal fun needsRenewal(nextDueOnIso: String?): Boolean = (dueStatus(nextDueOn
 // new date. Picking the latest-created record per vaccine name handles both cases.
 // Shared by VaccinesSection and InicioTab's TodoAlDiaBadge below -- both need "what's the
 // one current record per vaccine" for the same reason.
+// Ordered overdue-first (so what needs attention surfaces at the top of Inicio -- a
+// "replaced" record is never treated as overdue here, same rule as its own pill), then by
+// most-recently-created within each group.
 internal fun latestPerVaccine(doses: List<VaccineDose>): List<VaccineDose> = doses
     .groupBy { it.vaccine }
     .values
     .map { group -> group.maxBy { dose -> Instant.parse(dose.createdAt) } }
-    .sortedByDescending { Instant.parse(it.createdAt) }
+    .sortedWith(
+        compareByDescending<VaccineDose> { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true }
+            .thenByDescending { Instant.parse(it.createdAt) }
+    )
 
 // Deworming counterpart of latestPerVaccine, deduped by product name instead.
 internal fun latestPerProduct(applications: List<DewormingApplication>): List<DewormingApplication> = applications
     .groupBy { it.productName }
     .values
     .map { group -> group.maxBy { application -> Instant.parse(application.createdAt) } }
-    .sortedByDescending { Instant.parse(it.createdAt) }
+    .sortedWith(
+        compareByDescending<DewormingApplication> { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true }
+            .thenByDescending { Instant.parse(it.createdAt) }
+    )
 
 @Composable
 private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacion: () -> Unit, canEdit: Boolean, onOpen: (String) -> Unit) {
