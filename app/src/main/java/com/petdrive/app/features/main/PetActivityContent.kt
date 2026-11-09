@@ -288,9 +288,9 @@ internal fun dueStatus(nextDueOnIso: String?): DueInfo? {
     }
 }
 
-// Renewal (the "Renovar" button, and the "Reemplaza a" checklist offered when
-// registering a new dose/application) is offered earlier than the "Vencido" pill --
-// once something is due within a week, not only once it's actually overdue.
+// Renewal (the "Registrar nueva aplicación" button, and the "Reemplaza a" checklist
+// offered when registering a new dose/application) is offered earlier than the "Vencido"
+// pill -- once something is due within a week, not only once it's actually overdue.
 internal fun needsRenewal(nextDueOnIso: String?): Boolean = (dueStatus(nextDueOnIso)?.daysUntil ?: Long.MAX_VALUE) <= 7
 
 // Dedupes to one record per vaccine, keeping the most recently created one. Status alone

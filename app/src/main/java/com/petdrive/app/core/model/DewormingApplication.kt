@@ -19,9 +19,9 @@ data class CreateDewormingApplicationRequest(
 data class RegisterDewormingsFromDocumentRequest(val dewormings: List<CreateDewormingApplicationRequest>)
 
 // PATCH deworming-applications/<id>/ -- edits the renewal date on an existing application
-// in place (DesparasitacionDetailScreen's "Guardar"), as opposed to "Renovar" which
-// creates a brand new application via CreateDewormingApplicationRequest and leaves this
-// one untouched.
+// in place (DesparasitacionDetailScreen's "Guardar"), as opposed to "Registrar nueva
+// aplicación" which creates a brand new application via CreateDewormingApplicationRequest
+// and leaves this one untouched.
 @Serializable
 data class UpdateDewormingApplicationRequest(@SerialName("next_due_on") val nextDueOn: String)
 

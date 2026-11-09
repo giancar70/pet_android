@@ -208,9 +208,9 @@ class DewormingViewModel : ViewModel() {
     }
 
     // Edits the renewal date on an existing application in place
-    // (DesparasitacionDetailScreen's "Guardar") -- unlike "Renovar", which creates a
-    // brand new application and leaves this one untouched (see
-    // DewormingApplicationSerializer.create(), which no longer auto-replaces).
+    // (DesparasitacionDetailScreen's "Guardar") -- unlike "Registrar nueva aplicación",
+    // which creates a brand new application via DewormingApplicationSerializer.create()
+    // (auto-replacing any prior active application of the same product).
     fun updateNextDueOn(petId: String, applicationId: String, nextDueOnIso: String) {
         _updateState.value = UpdateDewormingUiState.Loading
         viewModelScope.launch {

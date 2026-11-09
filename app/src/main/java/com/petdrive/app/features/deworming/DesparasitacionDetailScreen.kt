@@ -196,9 +196,9 @@ fun DesparasitacionDetailScreen(
 
 // Holds the renewal-date edit state, scoped to (and reset whenever) the loaded application
 // changes -- "Guardar" PATCHes just that field in place
-// (DewormingViewModel.updateNextDueOn); it never touches the rest of the record. "Renovar"
-// is the separate, always-available path into "Registrar desparasitación" for logging a
-// brand new application instead.
+// (DewormingViewModel.updateNextDueOn); it never touches the rest of the record.
+// "Registrar nueva aplicación" is the separate, always-available path into "Registrar
+// desparasitación" for logging a brand new application instead.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DesparasitacionDetailContent(
@@ -254,7 +254,7 @@ private fun DesparasitacionDetailContent(
     }
 
     Spacer(modifier = Modifier.height(16.dp))
-    Text(text = "Fecha de renovación", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    Text(text = "Próxima fecha prevista", fontSize = 14.sp, fontWeight = FontWeight.Bold)
     Spacer(modifier = Modifier.height(8.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.weight(1f)) {
@@ -340,7 +340,7 @@ private fun DesparasitacionDetailContent(
         ) {
             Icon(Icons.Filled.Autorenew, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Renovar", fontWeight = FontWeight.Bold)
+            Text(text = "Registrar nueva aplicación", fontWeight = FontWeight.Bold)
         }
     }
 }

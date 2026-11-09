@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +38,7 @@ import com.petdrive.app.R
 import com.petdrive.app.core.model.User
 import com.petdrive.app.core.network.ApiClient
 import com.petdrive.app.core.network.ApiEndpoints
+import com.petdrive.app.core.notifications.OverdueBadgeManager
 import com.petdrive.app.core.notifications.PushTokenManager
 import com.petdrive.app.core.storage.TokenStore
 import kotlinx.coroutines.launch
@@ -64,6 +66,7 @@ fun PetsGateScreen(
     // Remembered so "Reintentar" can retry with the same hint rather than losing it --
     // the /auth/user/ lookup that produces it only needs to run once per gate entry.
     var selectPetIdHint by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     // PetsViewModel is Activity-scoped and outlives a single login session (no
     // Navigation-Compose to give this screen its own fresh instance), so its list
@@ -81,6 +84,11 @@ fun PetsGateScreen(
         // notifications every time the app reaches this gate (cold start, post-login,
         // post-register), which is the same point Android's own FCM token can change.
         launch { PushTokenManager.registerCurrentToken() }
+        // Also refreshes the overdue-count launcher badge every time the app reaches
+        // this gate, same reasoning as the push token above -- cheapest, most reliable
+        // point to keep it in sync without wiring a refresh into every vaccine/deworming
+        // mutation site individually.
+        launch { OverdueBadgeManager.refresh(context) }
         selectPetIdHint = runCatching { ApiClient.get<User>(ApiEndpoints.USER) }.getOrNull()?.lastSelectedPet
         viewModel.fetchPets(selectPetId = selectPetIdHint)
     }

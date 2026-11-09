@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.model.Reminder
+import com.petdrive.app.core.notifications.OverdueBadgeManager
 import com.petdrive.app.core.storage.TokenStore
 import com.petdrive.app.features.account.MiCuentaScreen
 import com.petdrive.app.features.activitylog.ActivityLogScreen
@@ -78,18 +79,22 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     val userViewModel: UserViewModel = viewModel()
     val authViewModel: AuthViewModel = viewModel()
 
+    val context = LocalContext.current
+
     // Both ViewModels are Activity-scoped and outlive a single login session, so a
     // fresh fetch is needed on every entry into Main rather than relying on init{}
-    // (which only ran once, possibly for a previous account).
+    // (which only ran once, possibly for a previous account). Also refreshes the
+    // overdue-count launcher badge for the same reason (and to pick up any renewal/edit
+    // made on a vaccine/deworming detail screen on the way back here).
     LaunchedEffect(Unit) {
         petsViewModel.fetchPets()
         userViewModel.loadUser()
+        OverdueBadgeManager.refresh(context)
     }
 
     // Recordatorio push notifications need this permission on API 33+; requesting it
     // here (rather than earlier in Onboarding/Login) means it's asked once the user
     // has actually reached the app's main content, with a pet to set reminders for.
-    val context = LocalContext.current
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {}
@@ -109,6 +114,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     LaunchedEffect(petsState) {
         if (petsState is PetsUiState.Unauthorized) {
             TokenStore.token = null
+            OverdueBadgeManager.clear(context)
             onLoggedOut()
         }
     }
@@ -362,7 +368,10 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                 onBack = { showAjustes = false },
                 onOpenPrivacyPolicy = { openUrl(context, LegalUrls.PRIVACY_POLICY) },
                 onOpenTerms = { openUrl(context, LegalUrls.TERMS) },
-                onAccountDeleted = onLoggedOut,
+                onAccountDeleted = {
+                    OverdueBadgeManager.clear(context)
+                    onLoggedOut()
+                },
                 viewModel = userViewModel,
             )
             return
@@ -551,6 +560,7 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                     userViewModel.logout()
                     userViewModel.reset()
                     authViewModel.reset()
+                    OverdueBadgeManager.clear(context)
                     onLoggedOut()
                 },
                 modifier = contentModifier,

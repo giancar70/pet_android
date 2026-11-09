@@ -14,6 +14,7 @@ object ApiEndpoints {
     const val DEVICE_TOKEN = "/auth/device-token/"
     fun deviceTokenDelete(token: String) = "/auth/device-token/?token=$token"
     const val PETS = "/pets/"
+    const val PET_OVERDUE_COUNT = "/pets/overdue-count/"
 
     fun petDetail(id: String) = "/pets/$id/"
     fun breeds(species: String) = "/pets/breeds/?species=$species"

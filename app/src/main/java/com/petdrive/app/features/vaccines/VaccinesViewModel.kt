@@ -205,8 +205,9 @@ class VaccinesViewModel : ViewModel() {
     }
 
     // Edits the renewal date on an existing dose in place (VacunaDetailScreen's
-    // "Guardar") -- unlike "Renovar", which creates a brand new dose and leaves this one
-    // untouched (see VaccineDoseSerializer.create(), which no longer auto-replaces).
+    // "Guardar") -- unlike "Registrar nueva aplicación", which creates a brand new dose
+    // via VaccineDoseSerializer.create() (auto-replacing any prior active dose of the
+    // same vaccine).
     fun updateNextDueOn(petId: String, doseId: String, nextDueOnIso: String) {
         _updateState.value = UpdateVaccineDoseUiState.Loading
         viewModelScope.launch {
