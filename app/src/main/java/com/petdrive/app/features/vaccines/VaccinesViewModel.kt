@@ -204,17 +204,31 @@ class VaccinesViewModel : ViewModel() {
         _registerFromDocumentState.value = RegisterVaccinesUiState.Idle
     }
 
-    // Edits the renewal date on an existing dose in place (VacunaDetailScreen's
-    // "Guardar") -- unlike "Registrar nueva aplicación", which creates a brand new dose
-    // via VaccineDoseSerializer.create() (auto-replacing any prior active dose of the
-    // same vaccine).
-    fun updateNextDueOn(petId: String, doseId: String, nextDueOnIso: String) {
+    // Full edit of an existing dose in place (VacunaDetailScreen's "Editar", via
+    // RegistrarVacunaScreen pre-filled) -- unlike "Registrar nueva aplicación", which
+    // creates a brand new dose via VaccineDoseSerializer.create() (auto-replacing any
+    // prior active dose of the same vaccine).
+    fun updateVacuna(
+        petId: String,
+        doseId: String,
+        vaccineName: String,
+        appliedOnIso: String,
+        nextDueOnIso: String?,
+        lotNumber: String?,
+        notes: String?,
+    ) {
         _updateState.value = UpdateVaccineDoseUiState.Loading
         viewModelScope.launch {
             try {
                 val dose: VaccineDose = ApiClient.patch(
                     ApiEndpoints.petVaccineDoseDetail(petId, doseId),
-                    UpdateVaccineDoseRequest(nextDueOn = nextDueOnIso),
+                    UpdateVaccineDoseRequest(
+                        vaccineName = vaccineName,
+                        appliedOn = appliedOnIso,
+                        nextDueOn = nextDueOnIso,
+                        lotNumber = lotNumber?.takeIf { it.isNotBlank() },
+                        notes = notes?.takeIf { it.isNotBlank() },
+                    ),
                 )
                 _updateState.value = UpdateVaccineDoseUiState.Success(dose)
                 if (_detailState.value is VaccineDoseDetailUiState.Loaded) {

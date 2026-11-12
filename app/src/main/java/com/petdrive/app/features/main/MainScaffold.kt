@@ -31,8 +31,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.Consultation
+import com.petdrive.app.core.model.DewormingApplication
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.core.model.Reminder
+import com.petdrive.app.core.model.VaccineDose
 import com.petdrive.app.core.notifications.OverdueBadgeManager
 import com.petdrive.app.core.storage.TokenStore
 import com.petdrive.app.features.account.MiCuentaScreen
@@ -157,6 +160,12 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
     var showAjustes by remember { mutableStateOf(false) }
     var petDetail by remember { mutableStateOf<Pet?>(null) }
     var showActivityLog by remember { mutableStateOf(false) }
+    // Carries "edit this record" from a Detail screen's "Editar" into the matching
+    // Registrar screen pre-filled -- distinct from showAnadirVacuna/etc. (create mode)
+    // and from activityDetail (read-only-ish detail view).
+    var editVacuna by remember { mutableStateOf<VaccineDose?>(null) }
+    var editDesparasitacion by remember { mutableStateOf<DewormingApplication?>(null) }
+    var editConsulta by remember { mutableStateOf<Consultation?>(null) }
 
     val currentPetDetail = petDetail
     val currentActivityDetail = activityDetail
@@ -223,6 +232,33 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
             )
             return
         }
+        editVacuna != null -> {
+            RegistrarVacunaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                existingVacuna = editVacuna,
+                onBack = { editVacuna = null },
+            )
+            return
+        }
+        editDesparasitacion != null -> {
+            RegistrarDesparasitacionScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                existingDesparasitacion = editDesparasitacion,
+                onBack = { editDesparasitacion = null },
+            )
+            return
+        }
+        editConsulta != null -> {
+            RegistrarConsultaScreen(
+                selectedPet = selectedPet,
+                userFullName = userFullName,
+                existingConsulta = editConsulta,
+                onBack = { editConsulta = null },
+            )
+            return
+        }
         currentActivityDetail != null -> {
             val (category, id) = currentActivityDetail
             when (category) {
@@ -235,6 +271,12 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                         activityDetail = null
                         showAnadirVacuna = true
                     },
+                    // Deliberately leaves activityDetail set -- RegistrarVacunaScreen
+                    // takes over the screen while editVacuna is non-null (checked above
+                    // this branch), and clearing just editVacuna on its onBack returns
+                    // straight to this same detail view with the freshly-saved dose,
+                    // same as the old inline editor staying put after Guardar.
+                    onEditar = { dose -> editVacuna = dose },
                 )
                 ActivityCategory.DEWORMING -> DesparasitacionDetailScreen(
                     selectedPet = selectedPet,
@@ -245,12 +287,14 @@ fun MainScaffold(onLoggedOut: () -> Unit) {
                         activityDetail = null
                         showAnadirDesparasitacion = true
                     },
+                    onEditar = { application -> editDesparasitacion = application },
                 )
                 ActivityCategory.CONSULTA -> ConsultaDetailScreen(
                     selectedPet = selectedPet,
                     userFullName = userFullName,
                     consultationId = id,
                     onBack = { activityDetail = null },
+                    onEditar = { consultation -> editConsulta = consultation },
                 )
                 ActivityCategory.INCIDENCIA -> IncidenciaDetailScreen(
                     selectedPet = selectedPet,

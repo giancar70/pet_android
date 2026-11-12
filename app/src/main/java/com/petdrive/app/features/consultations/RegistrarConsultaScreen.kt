@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.Consultation
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
@@ -79,9 +80,13 @@ private sealed interface ConsultaStep {
 fun RegistrarConsultaScreen(
     selectedPet: Pet?,
     userFullName: String?,
+    // Set only when opened from ConsultaDetailScreen's "Editar": prefills every field
+    // from this already-saved consultation and, on Guardar, PATCHes it in place instead
+    // of creating a new one -- onBack (not the Success step) is the completion signal.
+    existingConsulta: Consultation? = null,
     onBack: () -> Unit,
-    onFinish: () -> Unit,
-    onViewActivity: () -> Unit,
+    onFinish: () -> Unit = {},
+    onViewActivity: () -> Unit = {},
     viewModel: ConsultationsViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<ConsultaStep>(ConsultaStep.Form) }
@@ -90,6 +95,7 @@ fun RegistrarConsultaScreen(
         is ConsultaStep.Form -> ConsultaFormContent(
             selectedPet = selectedPet,
             userFullName = userFullName,
+            existingConsulta = existingConsulta,
             onBack = onBack,
             onSaved = { step = ConsultaStep.Success },
             viewModel = viewModel,
@@ -108,20 +114,24 @@ fun RegistrarConsultaScreen(
 private fun ConsultaFormContent(
     selectedPet: Pet?,
     userFullName: String?,
+    existingConsulta: Consultation? = null,
     onBack: () -> Unit,
     onSaved: () -> Unit,
     viewModel: ConsultationsViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
 
-    var motivo by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(LocalDate.now()) }
-    var sintomas by remember { mutableStateOf("") }
-    var hallazgos by remember { mutableStateOf("") }
-    var diagnostico by remember { mutableStateOf("") }
-    var tratamiento by remember { mutableStateOf("") }
-    var veterinario by remember { mutableStateOf("") }
-    var peso by remember { mutableStateOf("") }
+    var motivo by remember { mutableStateOf(existingConsulta?.reason ?: "") }
+    var date by remember {
+        mutableStateOf(existingConsulta?.consultDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now())
+    }
+    var sintomas by remember { mutableStateOf(existingConsulta?.symptoms ?: "") }
+    var hallazgos by remember { mutableStateOf(existingConsulta?.physicalExamFindings ?: "") }
+    var diagnostico by remember { mutableStateOf(existingConsulta?.diagnosis ?: "") }
+    var tratamiento by remember { mutableStateOf(existingConsulta?.treatment ?: "") }
+    var veterinario by remember { mutableStateOf(existingConsulta?.clinicName ?: "") }
+    var peso by remember { mutableStateOf(existingConsulta?.weightKg ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
@@ -134,10 +144,11 @@ private fun ConsultaFormContent(
     // so consumedInitialState instead always ignores the first firing regardless of what
     // it sees, and only acts on a later, genuine Success from this screen's own save.
     LaunchedEffect(Unit) {
-        viewModel.resetCreateState()
+        if (existingConsulta != null) viewModel.resetUpdateState() else viewModel.resetCreateState()
     }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
+        if (existingConsulta != null) return@LaunchedEffect
         if (!consumedInitialState) {
             consumedInitialState = true
             return@LaunchedEffect
@@ -145,6 +156,17 @@ private fun ConsultaFormContent(
         if (createState is CreateConsultaUiState.Success) {
             onSaved()
         }
+    }
+    // Editing goes straight back to the detail screen on success rather than through the
+    // Success step -- a "¡Consulta registrada!" message would read wrong for an edit.
+    var consumedInitialUpdateState by remember { mutableStateOf(false) }
+    LaunchedEffect(updateState) {
+        if (existingConsulta == null) return@LaunchedEffect
+        if (!consumedInitialUpdateState) {
+            consumedInitialUpdateState = true
+            return@LaunchedEffect
+        }
+        if (updateState is UpdateConsultaUiState.Success) onBack()
     }
 
     if (showDatePicker) {
@@ -196,7 +218,12 @@ private fun ConsultaFormContent(
             modifier = Modifier.padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(text = "Registrar consulta", color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = if (existingConsulta != null) "Editar consulta" else "Registrar consulta",
+                color = BrandGreen,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+            )
             Spacer(modifier = Modifier.height(20.dp))
 
             FormCard {
@@ -395,6 +422,7 @@ private fun ConsultaFormContent(
 
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateConsultaUiState.Error)?.message
+                ?: (updateState as? UpdateConsultaUiState.Error)?.message
             if (validationError != null || apiErrorMessage != null) {
                 Text(
                     text = validationError ?: apiErrorMessage!!,
@@ -405,7 +433,7 @@ private fun ConsultaFormContent(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            val isLoading = createState is CreateConsultaUiState.Loading
+            val isLoading = createState is CreateConsultaUiState.Loading || updateState is UpdateConsultaUiState.Loading
             Button(
                 onClick = {
                     val petId = selectedPet?.id
@@ -413,6 +441,21 @@ private fun ConsultaFormContent(
                         motivo.isBlank() -> validationError = "Ingresa el motivo de la consulta."
                         pesoValidationError(peso) != null -> validationError = pesoValidationError(peso)
                         petId == null -> validationError = "Agrega una mascota primero."
+                        existingConsulta != null -> {
+                            validationError = null
+                            viewModel.updateConsulta(
+                                petId = petId,
+                                consultationId = existingConsulta.id,
+                                motivo = motivo,
+                                consultDateIso = date.toString(),
+                                sintomas = sintomas,
+                                hallazgos = hallazgos,
+                                diagnostico = diagnostico,
+                                tratamiento = tratamiento,
+                                clinicaVeterinario = veterinario,
+                                pesoKg = peso.trim().replace(',', '.'),
+                            )
+                        }
                         else -> {
                             validationError = null
                             viewModel.createConsulta(
@@ -441,7 +484,7 @@ private fun ConsultaFormContent(
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
                 } else {
-                    Text(text = "Guardar consulta", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(text = if (existingConsulta != null) "Guardar" else "Guardar consulta", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))

@@ -62,6 +62,7 @@ fun ConsultaDetailScreen(
     userFullName: String?,
     consultationId: String,
     onBack: () -> Unit,
+    onEditar: (Consultation) -> Unit = {},
     viewModel: ConsultationsViewModel = viewModel(),
 ) {
     val detailState by viewModel.detailState.collectAsState()
@@ -128,6 +129,20 @@ fun ConsultaDetailScreen(
             }
 
             if (selectedPet?.canEdit != false) {
+                val loadedConsultation = (detailState as? ConsultaDetailUiState.Loaded)?.consultation
+                if (loadedConsultation != null) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = { onEditar(loadedConsultation) },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandGreen),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                    ) {
+                        Text(text = "Editar consulta", fontWeight = FontWeight.Bold)
+                    }
+                }
                 Spacer(modifier = Modifier.height(20.dp))
                 val isDeleting = deleteState is DeleteConsultaUiState.Loading
                 OutlinedButton(

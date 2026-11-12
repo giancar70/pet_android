@@ -38,6 +38,13 @@ sealed interface DeleteConsultaUiState {
     data class Error(val message: String) : DeleteConsultaUiState
 }
 
+sealed interface UpdateConsultaUiState {
+    data object Idle : UpdateConsultaUiState
+    data object Loading : UpdateConsultaUiState
+    data class Success(val consultation: Consultation) : UpdateConsultaUiState
+    data class Error(val message: String) : UpdateConsultaUiState
+}
+
 class ConsultationsViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateConsultaUiState>(CreateConsultaUiState.Idle)
     val createState: StateFlow<CreateConsultaUiState> = _createState.asStateFlow()
@@ -50,6 +57,9 @@ class ConsultationsViewModel : ViewModel() {
 
     private val _deleteState = MutableStateFlow<DeleteConsultaUiState>(DeleteConsultaUiState.Idle)
     val deleteState: StateFlow<DeleteConsultaUiState> = _deleteState.asStateFlow()
+
+    private val _updateState = MutableStateFlow<UpdateConsultaUiState>(UpdateConsultaUiState.Idle)
+    val updateState: StateFlow<UpdateConsultaUiState> = _updateState.asStateFlow()
 
     // Tracks which pet's list is currently held in _listState so fetchConsultas can
     // skip a redundant network call when nothing has changed -- see that function.
@@ -157,5 +167,54 @@ class ConsultationsViewModel : ViewModel() {
 
     fun resetDeleteState() {
         _deleteState.value = DeleteConsultaUiState.Idle
+    }
+
+    // Full edit of an existing consultation in place (ConsultaDetailScreen's "Editar",
+    // via RegistrarConsultaScreen pre-filled) -- consultations have no replace-prior-
+    // active-record semantics, so unlike vaccines/deworming this is a plain PATCH with
+    // no extra status side effects.
+    fun updateConsulta(
+        petId: String,
+        consultationId: String,
+        motivo: String,
+        consultDateIso: String,
+        sintomas: String?,
+        hallazgos: String?,
+        diagnostico: String?,
+        tratamiento: String?,
+        clinicaVeterinario: String?,
+        pesoKg: String? = null,
+    ) {
+        _updateState.value = UpdateConsultaUiState.Loading
+        viewModelScope.launch {
+            try {
+                val request = CreateConsultationRequest(
+                    reason = motivo,
+                    consultDate = consultDateIso,
+                    symptoms = sintomas?.takeIf { it.isNotBlank() },
+                    physicalExamFindings = hallazgos?.takeIf { it.isNotBlank() },
+                    diagnosis = diagnostico?.takeIf { it.isNotBlank() },
+                    treatment = tratamiento?.takeIf { it.isNotBlank() },
+                    clinicName = clinicaVeterinario?.takeIf { it.isNotBlank() },
+                    weightKg = pesoKg?.takeIf { it.isNotBlank() },
+                )
+                val consultation: Consultation = ApiClient.patch(ApiEndpoints.petConsultationDetail(petId, consultationId), request)
+                _updateState.value = UpdateConsultaUiState.Success(consultation)
+                if (_detailState.value is ConsultaDetailUiState.Loaded) {
+                    _detailState.value = ConsultaDetailUiState.Loaded(consultation)
+                }
+                (_listState.value as? ConsultasListUiState.Loaded)?.let {
+                    _listState.value = ConsultasListUiState.Loaded(it.consultations.map { c -> if (c.id == consultation.id) consultation else c })
+                }
+            } catch (e: ApiError.ServerError) {
+                _updateState.value = UpdateConsultaUiState.Error(e.errorMessage)
+            } catch (e: ApiError) {
+                _updateState.value = UpdateConsultaUiState.Error(e.message ?: "No se pudo actualizar la consulta.")
+            }
+        }
+    }
+
+    fun resetUpdateState() {
+        _updateState.value = UpdateConsultaUiState.Idle
     }
 }

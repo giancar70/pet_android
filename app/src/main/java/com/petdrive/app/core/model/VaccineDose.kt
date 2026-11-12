@@ -17,11 +17,19 @@ data class CreateVaccineDoseRequest(
 @Serializable
 data class RegisterVaccinesFromDocumentRequest(val vaccines: List<CreateVaccineDoseRequest>)
 
-// PATCH vaccine-doses/<id>/ -- edits the renewal date on an existing dose in place
-// (VacunaDetailScreen's "Guardar"), as opposed to "Registrar nueva aplicación" which
-// creates a brand new dose via CreateVaccineDoseRequest and leaves this one untouched.
+// PATCH vaccine-doses/<id>/ -- full edit of an existing dose in place (VacunaDetailScreen's
+// "Editar", reusing RegistrarVacunaScreen pre-filled), as opposed to "Registrar nueva
+// aplicación" which creates a brand new dose via CreateVaccineDoseRequest and leaves this
+// one untouched. Every field is optional here (unlike on create) since this is also used
+// for the narrower edits a PATCH allows.
 @Serializable
-data class UpdateVaccineDoseRequest(@SerialName("next_due_on") val nextDueOn: String)
+data class UpdateVaccineDoseRequest(
+    @SerialName("vaccine_name") val vaccineName: String? = null,
+    @SerialName("applied_on") val appliedOn: String? = null,
+    @SerialName("next_due_on") val nextDueOn: String? = null,
+    @SerialName("lot_number") val lotNumber: String? = null,
+    val notes: String? = null,
+)
 
 @Serializable
 data class VaccineDose(

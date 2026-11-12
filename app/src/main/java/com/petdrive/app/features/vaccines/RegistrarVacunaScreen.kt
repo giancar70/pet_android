@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.petdrive.app.core.model.Pet
+import com.petdrive.app.core.model.VaccineDose
 import com.petdrive.app.features.files.VaccineDraft
 import com.petdrive.app.features.incidents.SuccessCheckmark
 import com.petdrive.app.features.incidents.spanishDate
@@ -85,6 +86,11 @@ fun RegistrarVacunaScreen(
     draft: VaccineDraft? = null,
     onDraftSaved: ((VaccineDraft) -> Unit)? = null,
     onRemoveDraft: (() -> Unit)? = null,
+    // Set only when opened from VacunaDetailScreen's "Editar": prefills every field from
+    // this already-saved dose and, on Guardar, PATCHes it in place instead of creating a
+    // new one -- onBack (not the Success step) is the completion signal, same as the
+    // detail screen's old inline renewal-date editor this supersedes.
+    existingVacuna: VaccineDose? = null,
     onBack: () -> Unit,
     onFinish: () -> Unit = {},
     onViewActivity: () -> Unit = {},
@@ -99,6 +105,7 @@ fun RegistrarVacunaScreen(
             draft = draft,
             onDraftSaved = onDraftSaved,
             onRemoveDraft = onRemoveDraft,
+            existingVacuna = existingVacuna,
             onBack = onBack,
             onSaved = { step = VacunaStep.Success(it) },
             viewModel = viewModel,
@@ -120,17 +127,29 @@ private fun VacunaFormContent(
     draft: VaccineDraft? = null,
     onDraftSaved: ((VaccineDraft) -> Unit)? = null,
     onRemoveDraft: (() -> Unit)? = null,
+    existingVacuna: VaccineDose? = null,
     onBack: () -> Unit,
     onSaved: (SavedVacuna) -> Unit,
     viewModel: VaccinesViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
 
-    var vacunaAplicada by remember { mutableStateOf(draft?.vaccineName ?: "") }
-    var date by remember { mutableStateOf(draft?.appliedOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
-    var nextDueDate by remember { mutableStateOf(draft?.nextDueOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() }) }
-    var lote by remember { mutableStateOf(draft?.lotNumber ?: "") }
-    var observaciones by remember { mutableStateOf(draft?.notes ?: "") }
+    var vacunaAplicada by remember { mutableStateOf(existingVacuna?.vaccine ?: draft?.vaccineName ?: "") }
+    var date by remember {
+        mutableStateOf(
+            existingVacuna?.appliedOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                ?: draft?.appliedOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                ?: LocalDate.now(),
+        )
+    }
+    var nextDueDate by remember {
+        mutableStateOf(
+            (existingVacuna?.nextDueOn ?: draft?.nextDueOn)?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+        )
+    }
+    var lote by remember { mutableStateOf(existingVacuna?.lotNumber ?: draft?.lotNumber ?: "") }
+    var observaciones by remember { mutableStateOf(existingVacuna?.notes ?: draft?.notes ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -156,11 +175,14 @@ private fun VacunaFormContent(
     // only a later, genuine transition (Loading -> Success from this screen's own save)
     // triggers onSaved.
     LaunchedEffect(Unit) {
-        if (onDraftSaved == null) viewModel.resetCreateState()
+        when {
+            existingVacuna != null -> viewModel.resetUpdateState()
+            onDraftSaved == null -> viewModel.resetCreateState()
+        }
     }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
-        if (onDraftSaved != null) return@LaunchedEffect
+        if (existingVacuna != null || onDraftSaved != null) return@LaunchedEffect
         if (!consumedInitialState) {
             consumedInitialState = true
             return@LaunchedEffect
@@ -169,6 +191,18 @@ private fun VacunaFormContent(
         if (state is CreateVaccineDoseUiState.Success) {
             onSaved(SavedVacuna(name = state.dose.vaccine, dateDisplay = spanishDate(date)))
         }
+    }
+    // Editing goes straight back to the detail screen on success rather than through the
+    // Success step -- matches how the detail screen's old inline renewal-date editor
+    // behaved, and avoids a "¡Vacuna registrada!" message that reads wrong for an edit.
+    var consumedInitialUpdateState by remember { mutableStateOf(false) }
+    LaunchedEffect(updateState) {
+        if (existingVacuna == null) return@LaunchedEffect
+        if (!consumedInitialUpdateState) {
+            consumedInitialUpdateState = true
+            return@LaunchedEffect
+        }
+        if (updateState is UpdateVaccineDoseUiState.Success) onBack()
     }
 
     if (showDatePicker) {
@@ -244,7 +278,12 @@ private fun VacunaFormContent(
             modifier = Modifier.padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(text = "Registrar Vacuna", color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = if (existingVacuna != null) "Editar vacuna" else "Registrar Vacuna",
+                color = BrandGreen,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+            )
             Spacer(modifier = Modifier.height(20.dp))
 
             FormCard {
@@ -387,6 +426,7 @@ private fun VacunaFormContent(
 
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateVaccineDoseUiState.Error)?.message
+                ?: (updateState as? UpdateVaccineDoseUiState.Error)?.message
             if (validationError != null || apiErrorMessage != null) {
                 Text(
                     text = validationError ?: apiErrorMessage!!,
@@ -397,28 +437,38 @@ private fun VacunaFormContent(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            val isLoading = createState is CreateVaccineDoseUiState.Loading
+            val isLoading = createState is CreateVaccineDoseUiState.Loading || updateState is UpdateVaccineDoseUiState.Loading
             Button(
                 onClick = {
                     val petId = selectedPet?.id
                     when {
                         vacunaAplicada.isBlank() -> validationError = "Ingresa el nombre de la vacuna aplicada."
-                        onDraftSaved == null && petId == null -> validationError = "Agrega una mascota primero."
+                        existingVacuna == null && onDraftSaved == null && petId == null -> validationError = "Agrega una mascota primero."
                         else -> {
                             validationError = null
-                            if (onDraftSaved != null) {
-                                onDraftSaved(
-                                    VaccineDraft(
-                                        vaccineName = vacunaAplicada,
-                                        appliedOn = date.toString(),
-                                        nextDueOn = nextDueDate?.toString(),
-                                        lotNumber = lote.takeIf { it.isNotBlank() },
-                                        notes = observaciones.takeIf { it.isNotBlank() },
-                                    ),
+                            when {
+                                existingVacuna != null -> viewModel.updateVacuna(
+                                    petId = petId!!,
+                                    doseId = existingVacuna.id,
+                                    vaccineName = vacunaAplicada,
+                                    appliedOnIso = date.toString(),
+                                    nextDueOnIso = nextDueDate?.toString(),
+                                    lotNumber = lote,
+                                    notes = observaciones,
                                 )
-                                onBack()
-                            } else {
-                                viewModel.createVacuna(
+                                onDraftSaved != null -> {
+                                    onDraftSaved(
+                                        VaccineDraft(
+                                            vaccineName = vacunaAplicada,
+                                            appliedOn = date.toString(),
+                                            nextDueOn = nextDueDate?.toString(),
+                                            lotNumber = lote.takeIf { it.isNotBlank() },
+                                            notes = observaciones.takeIf { it.isNotBlank() },
+                                        ),
+                                    )
+                                    onBack()
+                                }
+                                else -> viewModel.createVacuna(
                                     petId = petId!!,
                                     vaccineName = vacunaAplicada,
                                     appliedOnIso = date.toString(),
@@ -440,7 +490,12 @@ private fun VacunaFormContent(
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
                 } else {
-                    Text(text = if (onDraftSaved != null) "Verificar información" else "Guardar vacuna", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    val label = when {
+                        existingVacuna != null -> "Guardar"
+                        onDraftSaved != null -> "Verificar información"
+                        else -> "Guardar vacuna"
+                    }
+                    Text(text = label, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
             if (onRemoveDraft != null) {

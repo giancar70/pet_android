@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.DewormingApplication
 import com.petdrive.app.core.model.DewormingType
 import com.petdrive.app.core.model.Pet
 import com.petdrive.app.features.files.DewormingDraft
@@ -98,6 +99,11 @@ fun RegistrarDesparasitacionScreen(
     draft: DewormingDraft? = null,
     onDraftSaved: ((DewormingDraft) -> Unit)? = null,
     onRemoveDraft: (() -> Unit)? = null,
+    // Set only when opened from DesparasitacionDetailScreen's "Editar": prefills every
+    // field from this already-saved application and, on Guardar, PATCHes it in place
+    // instead of creating a new one -- onBack (not the Success step) is the completion
+    // signal, same as the detail screen's old inline renewal-date editor this supersedes.
+    existingDesparasitacion: DewormingApplication? = null,
     onBack: () -> Unit,
     onFinish: () -> Unit = {},
     onViewActivity: () -> Unit = {},
@@ -112,6 +118,7 @@ fun RegistrarDesparasitacionScreen(
             draft = draft,
             onDraftSaved = onDraftSaved,
             onRemoveDraft = onRemoveDraft,
+            existingDesparasitacion = existingDesparasitacion,
             onBack = onBack,
             onSaved = { step = DesparasitacionStep.Success },
             viewModel = viewModel,
@@ -133,19 +140,31 @@ private fun DesparasitacionFormContent(
     draft: DewormingDraft? = null,
     onDraftSaved: ((DewormingDraft) -> Unit)? = null,
     onRemoveDraft: (() -> Unit)? = null,
+    existingDesparasitacion: DewormingApplication? = null,
     onBack: () -> Unit,
     onSaved: () -> Unit,
     viewModel: DewormingViewModel,
 ) {
     val createState by viewModel.createState.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
     val listState by viewModel.listState.collectAsState()
 
-    var tipo by remember { mutableStateOf(DewormingType.entries.firstOrNull { it.apiValue == draft?.dewormingType } ?: DewormingType.INTERNAL) }
-    var date by remember { mutableStateOf(draft?.appliedOn?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()) }
-    var producto by remember { mutableStateOf(draft?.productName ?: "") }
+    var tipo by remember {
+        mutableStateOf(
+            DewormingType.entries.firstOrNull { it.apiValue == (existingDesparasitacion?.dewormingType ?: draft?.dewormingType) }
+                ?: DewormingType.INTERNAL,
+        )
+    }
+    var date by remember {
+        mutableStateOf(
+            (existingDesparasitacion?.appliedOn ?: draft?.appliedOn)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                ?: LocalDate.now(),
+        )
+    }
+    var producto by remember { mutableStateOf(existingDesparasitacion?.productName ?: draft?.productName ?: "") }
     var duracion by remember {
         mutableStateOf<Duracion>(
-            when (draft?.durationMonths) {
+            when (existingDesparasitacion?.durationMonths ?: draft?.durationMonths) {
                 null -> Duracion.OneMonth
                 1 -> Duracion.OneMonth
                 3 -> Duracion.ThreeMonths
@@ -154,29 +173,33 @@ private fun DesparasitacionFormContent(
         )
     }
     var duracionMesesCustom by remember {
-        mutableStateOf(draft?.durationMonths?.takeIf { it != 1 && it != 3 }?.toString() ?: "")
+        mutableStateOf((existingDesparasitacion?.durationMonths ?: draft?.durationMonths)?.takeIf { it != 1 && it != 3 }?.toString() ?: "")
     }
-    var observaciones by remember { mutableStateOf(draft?.notes ?: "") }
+    var observaciones by remember { mutableStateOf(existingDesparasitacion?.notes ?: draft?.notes ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     var pendingWarningDate by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(selectedPet?.id) {
-        if (onDraftSaved == null) selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
+        if (onDraftSaved == null && existingDesparasitacion == null) selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
     }
 
     // The nearest not-yet-due "próxima desparasitación" already on record, regardless of
     // type -- the backend doesn't expose deworming_type on read, so this can't be scoped
     // to the same type as the one being registered. Used to warn before creating a second
     // one ahead of schedule (see the confirmation dialog below).
-    val upcomingDueDate: LocalDate? = (listState as? DewormingListUiState.Loaded)?.applications
-        ?.filter { it.status == "active" }
-        ?.mapNotNull { app ->
-            val nextDueOn = app.nextDueOn ?: return@mapNotNull null
-            val info = dueStatus(nextDueOn) ?: return@mapNotNull null
-            if (info.isOverdue) null else runCatching { LocalDate.parse(nextDueOn) }.getOrNull()
-        }
-        ?.minOrNull()
+    // Not relevant while editing an existing application in place -- the warning is
+    // about creating a *second* one ahead of schedule, which doesn't apply here.
+    val upcomingDueDate: LocalDate? = if (existingDesparasitacion != null) null else {
+        (listState as? DewormingListUiState.Loaded)?.applications
+            ?.filter { it.status == "active" }
+            ?.mapNotNull { app ->
+                val nextDueOn = app.nextDueOn ?: return@mapNotNull null
+                val info = dueStatus(nextDueOn) ?: return@mapNotNull null
+                if (info.isOverdue) null else runCatching { LocalDate.parse(nextDueOn) }.getOrNull()
+            }
+            ?.minOrNull()
+    }
 
     fun currentDuracionMeses() = when (duracion) {
         Duracion.OneMonth -> 1L
@@ -187,15 +210,28 @@ private fun DesparasitacionFormContent(
     fun submit() {
         val petId = selectedPet?.id ?: return
         val duracionMeses = currentDuracionMeses()
-        viewModel.createDesparasitacion(
-            petId = petId,
-            dewormingType = tipo.apiValue,
-            appliedOnIso = date.toString(),
-            nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
-            durationMonths = duracionMeses?.toInt(),
-            productName = producto,
-            notes = observaciones,
-        )
+        if (existingDesparasitacion != null) {
+            viewModel.updateDesparasitacion(
+                petId = petId,
+                applicationId = existingDesparasitacion.id,
+                dewormingType = tipo.apiValue,
+                appliedOnIso = date.toString(),
+                nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
+                durationMonths = duracionMeses?.toInt(),
+                productName = producto,
+                notes = observaciones,
+            )
+        } else {
+            viewModel.createDesparasitacion(
+                petId = petId,
+                dewormingType = tipo.apiValue,
+                appliedOnIso = date.toString(),
+                nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
+                durationMonths = duracionMeses?.toInt(),
+                productName = producto,
+                notes = observaciones,
+            )
+        }
     }
 
     // DewormingViewModel is Activity-scoped (no Navigation-Compose back stack), so a
@@ -208,11 +244,14 @@ private fun DesparasitacionFormContent(
     // only a later, genuine transition (Loading -> Success from this screen's own save)
     // triggers onSaved.
     LaunchedEffect(Unit) {
-        if (onDraftSaved == null) viewModel.resetCreateState()
+        when {
+            existingDesparasitacion != null -> viewModel.resetUpdateState()
+            onDraftSaved == null -> viewModel.resetCreateState()
+        }
     }
     var consumedInitialState by remember { mutableStateOf(false) }
     LaunchedEffect(createState) {
-        if (onDraftSaved != null) return@LaunchedEffect
+        if (existingDesparasitacion != null || onDraftSaved != null) return@LaunchedEffect
         if (!consumedInitialState) {
             consumedInitialState = true
             return@LaunchedEffect
@@ -220,6 +259,19 @@ private fun DesparasitacionFormContent(
         if (createState is CreateDewormingUiState.Success) {
             onSaved()
         }
+    }
+    // Editing goes straight back to the detail screen on success rather than through the
+    // Success step -- matches how the detail screen's old inline renewal-date editor
+    // behaved, and avoids a "¡Desparasitación registrada!" message that reads wrong for
+    // an edit.
+    var consumedInitialUpdateState by remember { mutableStateOf(false) }
+    LaunchedEffect(updateState) {
+        if (existingDesparasitacion == null) return@LaunchedEffect
+        if (!consumedInitialUpdateState) {
+            consumedInitialUpdateState = true
+            return@LaunchedEffect
+        }
+        if (updateState is UpdateDewormingUiState.Success) onBack()
     }
 
     if (showDatePicker) {
@@ -293,7 +345,13 @@ private fun DesparasitacionFormContent(
             modifier = Modifier.padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(text = "Registrar Desparasitación", color = BrandGreen, fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(
+                text = if (existingDesparasitacion != null) "Editar desparasitación" else "Registrar Desparasitación",
+                color = BrandGreen,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
             Spacer(modifier = Modifier.height(20.dp))
 
             FormCard {
@@ -431,6 +489,7 @@ private fun DesparasitacionFormContent(
 
             Spacer(modifier = Modifier.height(24.dp))
             val apiErrorMessage = (createState as? CreateDewormingUiState.Error)?.message
+                ?: (updateState as? UpdateDewormingUiState.Error)?.message
             if (validationError != null || apiErrorMessage != null) {
                 Text(
                     text = validationError ?: apiErrorMessage!!,
@@ -441,14 +500,19 @@ private fun DesparasitacionFormContent(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            val isLoading = createState is CreateDewormingUiState.Loading
+            val isLoading = createState is CreateDewormingUiState.Loading || updateState is UpdateDewormingUiState.Loading
             Button(
                 onClick = {
                     val duracionMeses = currentDuracionMeses()
                     when {
-                        onDraftSaved == null && selectedPet?.id == null -> validationError = "Agrega una mascota primero."
+                        existingDesparasitacion == null && onDraftSaved == null && selectedPet?.id == null ->
+                            validationError = "Agrega una mascota primero."
                         duracion is Duracion.Custom && duracionMeses == null ->
                             validationError = "Ingresa la duración en meses."
+                        existingDesparasitacion != null -> {
+                            validationError = null
+                            submit()
+                        }
                         onDraftSaved != null -> {
                             validationError = null
                             onDraftSaved(
@@ -483,7 +547,12 @@ private fun DesparasitacionFormContent(
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(20.dp))
                 } else {
-                    Text(text = if (onDraftSaved != null) "Verificar información" else "Guardar desparasitación", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    val label = when {
+                        existingDesparasitacion != null -> "Guardar"
+                        onDraftSaved != null -> "Verificar información"
+                        else -> "Guardar desparasitación"
+                    }
+                    Text(text = label, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
             if (onRemoveDraft != null) {

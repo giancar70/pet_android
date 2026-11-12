@@ -207,17 +207,34 @@ class DewormingViewModel : ViewModel() {
         _deleteState.value = DeleteDewormingUiState.Idle
     }
 
-    // Edits the renewal date on an existing application in place
-    // (DesparasitacionDetailScreen's "Guardar") -- unlike "Registrar nueva aplicación",
-    // which creates a brand new application via DewormingApplicationSerializer.create()
-    // (auto-replacing any prior active application of the same product).
-    fun updateNextDueOn(petId: String, applicationId: String, nextDueOnIso: String) {
+    // Full edit of an existing application in place (DesparasitacionDetailScreen's
+    // "Editar", via RegistrarDesparasitacionScreen pre-filled) -- unlike "Registrar nueva
+    // aplicación", which creates a brand new application via
+    // DewormingApplicationSerializer.create() (auto-replacing any prior active
+    // application of the same product).
+    fun updateDesparasitacion(
+        petId: String,
+        applicationId: String,
+        dewormingType: String,
+        appliedOnIso: String,
+        nextDueOnIso: String?,
+        durationMonths: Int?,
+        productName: String?,
+        notes: String?,
+    ) {
         _updateState.value = UpdateDewormingUiState.Loading
         viewModelScope.launch {
             try {
                 val application: DewormingApplication = ApiClient.patch(
                     ApiEndpoints.petDewormingApplicationDetail(petId, applicationId),
-                    UpdateDewormingApplicationRequest(nextDueOn = nextDueOnIso),
+                    UpdateDewormingApplicationRequest(
+                        dewormingType = dewormingType,
+                        appliedOn = appliedOnIso,
+                        nextDueOn = nextDueOnIso,
+                        durationMonths = durationMonths,
+                        productName = productName?.takeIf { it.isNotBlank() },
+                        notes = notes?.takeIf { it.isNotBlank() },
+                    ),
                 )
                 _updateState.value = UpdateDewormingUiState.Success(application)
                 if (_detailState.value is DewormingDetailUiState.Loaded) {
