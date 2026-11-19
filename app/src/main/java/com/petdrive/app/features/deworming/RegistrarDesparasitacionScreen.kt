@@ -166,6 +166,13 @@ private fun DesparasitacionFormContent(
     var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     var pendingWarningDate by remember { mutableStateOf<LocalDate?>(null) }
+    // Only meaningful for a brand-new application (not edit/draft) whose "Próxima
+    // aplicación prevista" was backdated into the past -- asks for confirmation before
+    // creating it, since the application will otherwise silently show up as "Vencido"
+    // (computed from this same date vs today, see PetActivityContent.kt's dueStatus())
+    // the moment it's saved. Mutually exclusive with pendingWarningDate above: that one
+    // only fires once this one doesn't (see the submit button's when-branch ordering).
+    var pendingOverdueConfirmDate by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(selectedPet?.id) {
         if (onDraftSaved == null && existingDesparasitacion == null) selectedPet?.id?.let { viewModel.fetchDesparasitaciones(it) }
@@ -323,6 +330,23 @@ private fun DesparasitacionFormContent(
             },
             dismissButton = {
                 TextButton(onClick = { pendingWarningDate = null }) { Text("Cancelar") }
+            },
+        )
+    }
+
+    pendingOverdueConfirmDate?.let { confirmDate ->
+        AlertDialog(
+            onDismissRequest = { pendingOverdueConfirmDate = null },
+            title = { Text("Desparasitación vencida") },
+            text = { Text("La desparasitación prevista para el ${spanishDate(confirmDate)} ¿sigue pendiente?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingOverdueConfirmDate = null
+                    submit()
+                }) { Text("Sí") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingOverdueConfirmDate = null }) { Text("No") }
             },
         )
     }
@@ -525,6 +549,10 @@ private fun DesparasitacionFormContent(
                                 ),
                             )
                             onBack()
+                        }
+                        nextDueOn!!.isBefore(LocalDate.now()) -> {
+                            validationError = null
+                            pendingOverdueConfirmDate = nextDueOn
                         }
                         upcomingDueDate != null -> {
                             validationError = null

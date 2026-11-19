@@ -22,6 +22,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -153,6 +154,11 @@ private fun VacunaFormContent(
     var showDatePicker by remember { mutableStateOf(false) }
     var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    // Only meaningful for a brand-new dose (not edit/draft) whose "Próxima vacunación"
+    // was backdated into the past -- asks for confirmation before creating it, since the
+    // dose will otherwise silently show up as "Vencido" (computed from this same date vs
+    // today, see PetActivityContent.kt's dueStatus()) the moment it's saved.
+    var pendingOverdueConfirmDate by remember { mutableStateOf<LocalDate?>(null) }
 
     // Recomputed every recomposition (cheap) so it reacts immediately to either date
     // picker without a separate effect -- próxima vacunación is optional, so there's
@@ -255,6 +261,30 @@ private fun VacunaFormContent(
         ) {
             DatePicker(state = nextDueDatePickerState)
         }
+    }
+
+    pendingOverdueConfirmDate?.let { confirmDate ->
+        AlertDialog(
+            onDismissRequest = { pendingOverdueConfirmDate = null },
+            title = { Text("Vacuna vencida") },
+            text = { Text("La dosis prevista para el ${spanishDate(confirmDate)} ¿sigue pendiente?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingOverdueConfirmDate = null
+                    viewModel.createVacuna(
+                        petId = selectedPet!!.id,
+                        vaccineName = vacunaAplicada,
+                        appliedOnIso = date.toString(),
+                        nextDueOnIso = nextDueDate?.toString(),
+                        lotNumber = lote,
+                        notes = observaciones,
+                    )
+                }) { Text("Sí") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingOverdueConfirmDate = null }) { Text("No") }
+            },
+        )
     }
 
     Column(
@@ -444,6 +474,10 @@ private fun VacunaFormContent(
                     when {
                         vacunaAplicada.isBlank() -> validationError = "Ingresa el nombre de la vacuna aplicada."
                         existingVacuna == null && onDraftSaved == null && petId == null -> validationError = "Agrega una mascota primero."
+                        existingVacuna == null && onDraftSaved == null && nextDueDate != null && nextDueDate!!.isBefore(LocalDate.now()) -> {
+                            validationError = null
+                            pendingOverdueConfirmDate = nextDueDate
+                        }
                         else -> {
                             validationError = null
                             when {
