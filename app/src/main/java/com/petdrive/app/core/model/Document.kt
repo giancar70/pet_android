@@ -78,6 +78,6 @@ enum class DocumentTypeOption(val apiValue: String, val label: String) {
     INVOICE("invoice", "Factura"),
     LABWORK("labwork", "Laboratorio"),
     PRESCRIPTION("prescription", "Receta"),
-    VACCINE_CARD("vaccine_card", "Cartilla de vacunas (IA)"),
+    VACCINE_CARD("vaccine_card", "Cartilla/Pasaporte (IA)"),
     OTHER("other", "Otros"),
 }

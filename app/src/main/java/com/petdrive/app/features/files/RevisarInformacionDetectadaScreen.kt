@@ -202,7 +202,10 @@ fun RevisarInformacionDetectadaScreen(
                 }
 
                 val bytes = mergedImageBytes()
-                filesViewModel.uploadDocument(pet.id, bytes, fileName, "image/jpeg", DocumentTypeOption.VACCINE_CARD.apiValue)
+                // analyzed=true: this document was already classified/extracted via
+                // analyze-cartilla above, so the backend shouldn't re-run its own
+                // (narrower, vaccine-only) extraction pass on top of it.
+                filesViewModel.uploadDocument(pet.id, bytes, fileName, "image/jpeg", DocumentTypeOption.VACCINE_CARD.apiValue, analyzed = true)
                 val uploadResult = filesViewModel.uploadState.first { it !is UploadDocumentUiState.Loading }
                 val documentId = when (uploadResult) {
                     is UploadDocumentUiState.Success -> uploadResult.document.id

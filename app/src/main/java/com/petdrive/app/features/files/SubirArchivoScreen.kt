@@ -79,10 +79,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.petdrive.app.core.model.CartillaAnalysis
 import com.petdrive.app.core.model.CreateVaccineDoseRequest
 import com.petdrive.app.core.model.Document
 import com.petdrive.app.core.model.DocumentTypeOption
 import com.petdrive.app.core.model.Pet
+import com.petdrive.app.features.deworming.DewormingViewModel
 import com.petdrive.app.features.main.GreetingHeader
 import com.petdrive.app.features.vaccines.RegisterVaccinesUiState
 import com.petdrive.app.features.vaccines.VaccinesViewModel
@@ -114,11 +116,25 @@ private sealed interface UploadStep {
     // wasVaccineCard: the document was uploaded as "Cartilla de vacunas" but no vaccines
     // came back (nothing legible, extraction failed, or a PDF -- only images are read),
     // so the success screen explains why nothing was offered for review.
-    data class Success(val file: SelectedFile, val wasVaccineCard: Boolean = false, val documentTypeLabel: String? = null) : UploadStep
+    data class Success(
+        val file: SelectedFile,
+        val wasVaccineCard: Boolean = false,
+        val documentTypeLabel: String? = null,
+        val registeredVaccines: Int = 0,
+        val registeredDewormings: Int = 0,
+    ) : UploadStep
     // Reached from either entry point whenever a "Cartilla de vacunas" upload's response
     // came back with a non-empty detected-vaccines list.
     data class ReviewVaccines(val document: Document) : UploadStep
+    // Cartilla/Pasaporte path (image files only): mirrors CapturarDocumentoScreen's own
+    // Analyzing/Review steps -- nothing is persisted until the rich review screen's
+    // "Guardar registros" action.
+    data class Analyzing(val file: SelectedFile) : UploadStep
+    data class Review(val file: SelectedFile, val analysis: CartillaAnalysis) : UploadStep
 }
+
+private fun isCartillaEligibleMime(mimeType: String): Boolean =
+    mimeType == "image/png" || mimeType == "image/jpeg"
 
 private fun stepAfterUpload(file: SelectedFile, document: Document): UploadStep {
     val wasVaccineCard = document.documentType == DocumentTypeOption.VACCINE_CARD.apiValue
@@ -142,8 +158,28 @@ fun SubirArchivoScreen(
     onViewVaccinesActivity: () -> Unit = onViewActivity,
     viewModel: FilesViewModel = viewModel(),
     vaccinesViewModel: VaccinesViewModel = viewModel(),
+    dewormingViewModel: DewormingViewModel = viewModel(),
 ) {
     var step by remember { mutableStateOf<UploadStep>(UploadStep.Picker) }
+    val petId = selectedPet?.id
+
+    val analyzeCartillaState by viewModel.analyzeCartillaState.collectAsState()
+    // Mirrors CapturarDocumentoScreen's identical effect: fires the AI classification
+    // call once per entry into Analyzing, then transitions to Review on success.
+    LaunchedEffect(step) {
+        val current = step
+        if (current !is UploadStep.Analyzing || petId == null) return@LaunchedEffect
+        viewModel.resetAnalyzeCartillaState()
+        viewModel.analyzeCartilla(petId, current.file.bytes, current.file.name, current.file.mimeType)
+    }
+    LaunchedEffect(analyzeCartillaState, step) {
+        val current = step
+        if (current !is UploadStep.Analyzing) return@LaunchedEffect
+        when (val state = analyzeCartillaState) {
+            is AnalyzeCartillaUiState.Success -> step = UploadStep.Review(current.file, state.analysis)
+            else -> Unit
+        }
+    }
 
     when (val current = step) {
         is UploadStep.Picker -> SubirArchivoStep(
@@ -158,7 +194,33 @@ fun SubirArchivoScreen(
             file = current.file,
             onBack = { step = UploadStep.Picker },
             onUploaded = { document -> step = stepAfterUpload(current.file, document) },
+            onAnalyzeCartilla = { step = UploadStep.Analyzing(current.file) },
             viewModel = viewModel,
+        )
+        is UploadStep.Analyzing -> AnalizandoStep(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            error = (analyzeCartillaState as? AnalyzeCartillaUiState.Error)?.message,
+            onBack = { step = UploadStep.Selected(current.file) },
+        )
+        is UploadStep.Review -> RevisarInformacionDetectadaScreen(
+            selectedPet = selectedPet,
+            userFullName = userFullName,
+            analysis = current.analysis,
+            onBack = { step = UploadStep.Selected(current.file) },
+            onSaved = { vaccineCount, dewormingCount ->
+                step = UploadStep.Success(
+                    file = current.file,
+                    documentTypeLabel = DocumentTypeOption.VACCINE_CARD.label,
+                    registeredVaccines = vaccineCount,
+                    registeredDewormings = dewormingCount,
+                )
+            },
+            mergedImageBytes = { current.file.bytes },
+            fileName = current.file.name,
+            filesViewModel = viewModel,
+            vaccinesViewModel = vaccinesViewModel,
+            dewormingViewModel = dewormingViewModel,
         )
         is UploadStep.Success -> DocumentoGuardadoStep(
             selectedPet = selectedPet,
@@ -167,7 +229,9 @@ fun SubirArchivoScreen(
             mimeType = current.file.mimeType,
             noVaccinesDetectedNote = current.wasVaccineCard,
             documentTypeLabel = current.documentTypeLabel,
-            onViewActivity = onViewActivity,
+            registeredVaccines = current.registeredVaccines,
+            registeredDewormings = current.registeredDewormings,
+            onViewActivity = if (current.registeredVaccines > 0 || current.registeredDewormings > 0) onViewVaccinesActivity else onViewActivity,
             onUploadAnother = { step = UploadStep.Picker },
         )
         is UploadStep.ReviewVaccines -> RevisarVacunasDetectadasStep(
@@ -335,6 +399,7 @@ private fun ArchivoSeleccionadoStep(
     file: SelectedFile,
     onBack: () -> Unit,
     onUploaded: (Document) -> Unit,
+    onAnalyzeCartilla: () -> Unit,
     viewModel: FilesViewModel,
 ) {
     val uploadState by viewModel.uploadState.collectAsState()
@@ -455,7 +520,11 @@ private fun ArchivoSeleccionadoStep(
                         validationError = "Selecciona un tipo de documento."
                     } else if (petId != null) {
                         validationError = null
-                        viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType, type.apiValue)
+                        if (type == DocumentTypeOption.VACCINE_CARD && isCartillaEligibleMime(file.mimeType)) {
+                            onAnalyzeCartilla()
+                        } else {
+                            viewModel.uploadDocument(petId, file.bytes, file.name, file.mimeType, type.apiValue)
+                        }
                     }
                 },
                 enabled = !isUploading && selectedPet != null,
@@ -482,22 +551,35 @@ private fun ArchivoSeleccionadoStep(
             text = {
                 Column {
                     DocumentTypeOption.entries.forEach { option ->
+                        // analyze-cartilla (the AI behind this option) only accepts
+                        // images -- a PDF/other file can't go through it, so the option
+                        // is disabled rather than silently falling back to a plain
+                        // upload the user didn't ask for.
+                        val isEligible = option != DocumentTypeOption.VACCINE_CARD || isCartillaEligibleMime(file.mimeType)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
+                                .clickable(enabled = isEligible) {
                                     documentType = option
                                     showTypeDialog = false
                                 }
                                 .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            RadioButton(selected = documentType == option, onClick = {
-                                documentType = option
-                                showTypeDialog = false
-                            })
+                            RadioButton(
+                                selected = documentType == option,
+                                enabled = isEligible,
+                                onClick = {
+                                    documentType = option
+                                    showTypeDialog = false
+                                },
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(option.label, fontSize = 15.sp)
+                            Text(
+                                text = if (isEligible) option.label else "${option.label} (solo fotos)",
+                                fontSize = 15.sp,
+                                color = if (isEligible) Color.Unspecified else SubtitleGray,
+                            )
                         }
                     }
                 }
