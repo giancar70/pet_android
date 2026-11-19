@@ -200,10 +200,6 @@ private fun DesparasitacionDetailContent(
         HorizontalDivider(color = CardBorder)
         DetailRow("Fecha de aplicación", formatIsoDate(application.appliedOn))
         DetailRow("Próxima fecha prevista", application.nextDueOn?.let { formatIsoDate(it) } ?: "No programada")
-        application.durationMonths?.let {
-            HorizontalDivider(color = CardBorder)
-            DetailRow("Duración", if (it == 1) "1 mes" else "$it meses")
-        }
         application.notes?.takeIf { it.isNotBlank() }?.let {
             HorizontalDivider(color = CardBorder)
             DetailRow("Observaciones", it)

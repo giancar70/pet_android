@@ -82,12 +82,6 @@ private sealed interface DesparasitacionStep {
     data object Success : DesparasitacionStep
 }
 
-private sealed interface Duracion {
-    data object OneMonth : Duracion
-    data object ThreeMonths : Duracion
-    data object Custom : Duracion
-}
-
 @Composable
 fun RegistrarDesparasitacionScreen(
     selectedPet: Pet?,
@@ -162,21 +156,14 @@ private fun DesparasitacionFormContent(
         )
     }
     var producto by remember { mutableStateOf(existingDesparasitacion?.productName ?: draft?.productName ?: "") }
-    var duracion by remember {
-        mutableStateOf<Duracion>(
-            when (existingDesparasitacion?.durationMonths ?: draft?.durationMonths) {
-                null -> Duracion.OneMonth
-                1 -> Duracion.OneMonth
-                3 -> Duracion.ThreeMonths
-                else -> Duracion.Custom
-            },
+    var nextDueOn by remember {
+        mutableStateOf(
+            (existingDesparasitacion?.nextDueOn ?: draft?.nextDueOn)?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
         )
-    }
-    var duracionMesesCustom by remember {
-        mutableStateOf((existingDesparasitacion?.durationMonths ?: draft?.durationMonths)?.takeIf { it != 1 && it != 3 }?.toString() ?: "")
     }
     var observaciones by remember { mutableStateOf(existingDesparasitacion?.notes ?: draft?.notes ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showNextDueDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     var pendingWarningDate by remember { mutableStateOf<LocalDate?>(null) }
 
@@ -201,23 +188,16 @@ private fun DesparasitacionFormContent(
             ?.minOrNull()
     }
 
-    fun currentDuracionMeses() = when (duracion) {
-        Duracion.OneMonth -> 1L
-        Duracion.ThreeMonths -> 3L
-        Duracion.Custom -> duracionMesesCustom.toLongOrNull()
-    }
-
     fun submit() {
         val petId = selectedPet?.id ?: return
-        val duracionMeses = currentDuracionMeses()
         if (existingDesparasitacion != null) {
             viewModel.updateDesparasitacion(
                 petId = petId,
                 applicationId = existingDesparasitacion.id,
                 dewormingType = tipo.apiValue,
                 appliedOnIso = date.toString(),
-                nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
-                durationMonths = duracionMeses?.toInt(),
+                nextDueOnIso = nextDueOn?.toString(),
+                durationMonths = null,
                 productName = producto,
                 notes = observaciones,
             )
@@ -226,8 +206,8 @@ private fun DesparasitacionFormContent(
                 petId = petId,
                 dewormingType = tipo.apiValue,
                 appliedOnIso = date.toString(),
-                nextDueOnIso = duracionMeses?.let { date.plusMonths(it).toString() },
-                durationMonths = duracionMeses?.toInt(),
+                nextDueOnIso = nextDueOn?.toString(),
+                durationMonths = null,
                 productName = producto,
                 notes = observaciones,
             )
@@ -299,6 +279,29 @@ private fun DesparasitacionFormContent(
             },
         ) {
             DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showNextDueDatePicker) {
+        val nextDueDatePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (nextDueOn ?: date).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showNextDueDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = nextDueDatePickerState.selectedDateMillis
+                    if (millis != null) {
+                        nextDueOn = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showNextDueDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNextDueDatePicker = false }) { Text("Cancelar") }
+            },
+        ) {
+            DatePicker(state = nextDueDatePickerState)
         }
     }
 
@@ -422,42 +425,39 @@ private fun DesparasitacionFormContent(
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Duración*", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TypeChip(
-                        label = "1 mes",
-                        selected = duracion is Duracion.OneMonth,
-                        onClick = { duracion = Duracion.OneMonth },
-                        modifier = Modifier.weight(1f),
-                    )
-                    TypeChip(
-                        label = "3 meses",
-                        selected = duracion is Duracion.ThreeMonths,
-                        onClick = { duracion = Duracion.ThreeMonths },
-                        modifier = Modifier.weight(1f),
-                    )
-                    TypeChip(
-                        label = "Otro",
-                        selected = duracion is Duracion.Custom,
-                        onClick = { duracion = Duracion.Custom },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (duracion is Duracion.Custom) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = duracionMesesCustom,
-                        onValueChange = { if (it.length <= 3 && it.all { c -> c.isDigit() }) duracionMesesCustom = it },
-                        placeholder = { Text("N° de meses") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = CardBorder,
-                            focusedBorderColor = BrandGreen,
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                Text(text = "Próxima aplicación prevista*", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = nextDueOn?.let { spanishDate(it) } ?: "",
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            placeholder = { Text("Selecciona una fecha") },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = CardBorder,
+                                focusedBorderColor = BrandGreen,
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showNextDueDatePicker = true },
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(BrandGreen, RoundedCornerShape(12.dp))
+                            .clickable { showNextDueDatePicker = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White)
+                    }
                 }
             }
 
@@ -503,12 +503,11 @@ private fun DesparasitacionFormContent(
             val isLoading = createState is CreateDewormingUiState.Loading || updateState is UpdateDewormingUiState.Loading
             Button(
                 onClick = {
-                    val duracionMeses = currentDuracionMeses()
                     when {
                         existingDesparasitacion == null && onDraftSaved == null && selectedPet?.id == null ->
                             validationError = "Agrega una mascota primero."
-                        duracion is Duracion.Custom && duracionMeses == null ->
-                            validationError = "Ingresa la duración en meses."
+                        nextDueOn == null ->
+                            validationError = "Selecciona la próxima fecha prevista."
                         existingDesparasitacion != null -> {
                             validationError = null
                             submit()
@@ -520,8 +519,8 @@ private fun DesparasitacionFormContent(
                                     dewormingType = tipo.apiValue,
                                     productName = producto.takeIf { it.isNotBlank() },
                                     appliedOn = date.toString(),
-                                    nextDueOn = duracionMeses?.let { date.plusMonths(it).toString() },
-                                    durationMonths = duracionMeses?.toInt(),
+                                    nextDueOn = nextDueOn?.toString(),
+                                    durationMonths = null,
                                     notes = observaciones.takeIf { it.isNotBlank() },
                                 ),
                             )
