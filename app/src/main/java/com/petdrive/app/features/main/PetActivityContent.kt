@@ -175,6 +175,21 @@ fun PetActivityContent(
 // by -created_at), so "last 3" is just the first 3 of the list.
 private const val HOME_SECTION_LIMIT = 3
 
+// Overdue items must never hide behind "Ver todo" -- when any exist, show all of them
+// regardless of count; only fall back to HOME_SECTION_LIMIT when nothing is overdue.
+// Callers pass an already overdue-first-sorted list (see latestPerVaccine/latestPerProduct),
+// so "take the first N" still surfaces the right records either way.
+private fun <T> homeLimit(items: List<T>, isOverdue: (T) -> Boolean): Int {
+    val overdueCount = items.count(isOverdue)
+    return if (overdueCount > 0) overdueCount else HOME_SECTION_LIMIT
+}
+
+private fun isVaccineOverdue(dose: VaccineDose): Boolean =
+    dose.status != "replaced" && dueStatus(dose.nextDueOn)?.isOverdue == true
+
+private fun isDewormingOverdue(application: DewormingApplication): Boolean =
+    application.status != "replaced" && dueStatus(application.nextDueOn)?.isOverdue == true
+
 @Composable
 private fun VaccinesSection(
     state: VaccinesListUiState,
@@ -203,7 +218,7 @@ private fun VaccinesSection(
                 )
             } else {
                 RecordList {
-                    activeDoses.take(HOME_SECTION_LIMIT).forEach { dose -> VaccineRow(dose, onClick = { onOpen(dose.id) }) }
+                    activeDoses.take(homeLimit(activeDoses, ::isVaccineOverdue)).forEach { dose -> VaccineRow(dose, onClick = { onOpen(dose.id) }) }
                 }
             }
         }
@@ -343,7 +358,7 @@ private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacio
                 )
             } else {
                 RecordList {
-                    activeApplications.take(HOME_SECTION_LIMIT).forEach { application -> DewormingRow(application, onClick = { onOpen(application.id) }) }
+                    activeApplications.take(homeLimit(activeApplications, ::isDewormingOverdue)).forEach { application -> DewormingRow(application, onClick = { onOpen(application.id) }) }
                 }
             }
         }
