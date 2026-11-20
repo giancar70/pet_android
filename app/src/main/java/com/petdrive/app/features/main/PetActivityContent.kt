@@ -190,8 +190,15 @@ private fun <T> homeLimit(items: List<T>, isOverdue: (T) -> Boolean): Int {
     return if (overdueCount > 0) overdueCount else HOME_SECTION_LIMIT
 }
 
+// True for a vaccine dose whose own row is no longer "live" for due-status purposes --
+// superseded by a newer dose (REPLACED, shown as "Renovado") or explicitly marked not
+// pending via the overdue-confirmation dialog's "No" (COMPLETED, shown as "Completada").
+// Neither ever counts as overdue/al día. Vaccine-only: DewormingApplication has no
+// COMPLETED status.
+internal fun isVaccineDoseFinal(status: String): Boolean = status == "replaced" || status == "completed"
+
 private fun isVaccineOverdue(dose: VaccineDose): Boolean =
-    dose.status != "replaced" && dueStatus(dose.nextDueOn)?.isOverdue == true
+    !isVaccineDoseFinal(dose.status) && dueStatus(dose.nextDueOn)?.isOverdue == true
 
 private fun isDewormingOverdue(application: DewormingApplication): Boolean =
     application.status != "replaced" && dueStatus(application.nextDueOn)?.isOverdue == true
@@ -237,14 +244,15 @@ private fun VaccineRow(dose: VaccineDose, onClick: () -> Unit) {
     // picked can itself be "replaced" -- e.g. edited in place (Guardar) with no newer
     // dose ever created, or the newer dose that superseded it has since been deleted.
     // Computing Vencido/Al día from such a record's date is wrong (nothing is actually
-    // pending); show it as Renovado instead, same label Actividad's full history uses.
-    if (dose.status == "replaced") {
+    // pending); show it as Renovado/Completada instead, same labels Actividad's full
+    // history uses.
+    if (isVaccineDoseFinal(dose.status)) {
         RecordRow(
             icon = Icons.Filled.Vaccines,
             title = dose.vaccine,
             subtitle = formatIsoDate(dose.appliedOn),
             onClick = onClick,
-            trailing = { RenovadoPill() },
+            trailing = { if (dose.status == "completed") CompletadaPill() else RenovadoPill() },
         )
         return
     }
@@ -270,6 +278,11 @@ private fun VaccineRow(dose: VaccineDose, onClick: () -> Unit) {
 @Composable
 private fun RenovadoPill() {
     DueStatusPill(label = "Renovado", color = Color(0xFF666666))
+}
+
+@Composable
+private fun CompletadaPill() {
+    DueStatusPill(label = "Completada", color = Color(0xFF666666))
 }
 
 private val pillBaseFontSize = 12.sp
@@ -360,7 +373,7 @@ internal fun latestPerVaccine(doses: List<VaccineDose>): List<VaccineDose> = dos
     .values
     .map { group -> group.maxBy { dose -> Instant.parse(dose.createdAt) } }
     .sortedWith(
-        compareByDescending<VaccineDose> { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true }
+        compareByDescending<VaccineDose> { !isVaccineDoseFinal(it.status) && dueStatus(it.nextDueOn)?.isOverdue == true }
             .thenByDescending { Instant.parse(it.createdAt) }
     )
 

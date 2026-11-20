@@ -123,6 +123,7 @@ class VaccinesViewModel : ViewModel() {
         nextDueOnIso: String?,
         lotNumber: String?,
         notes: String?,
+        markCompleted: Boolean = false,
     ) {
         _createState.value = CreateVaccineDoseUiState.Loading
         viewModelScope.launch {
@@ -133,6 +134,7 @@ class VaccinesViewModel : ViewModel() {
                     nextDueOn = nextDueOnIso,
                     lotNumber = lotNumber?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
+                    markCompleted = markCompleted,
                 )
                 val dose: VaccineDose = ApiClient.post(ApiEndpoints.petVaccineDoses(petId), request)
                 _createState.value = CreateVaccineDoseUiState.Success(dose)

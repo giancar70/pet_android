@@ -159,7 +159,7 @@ private fun TodoAlDiaBadge(
     // PetActivityContent.kt for why this can't just filter by status. The one picked can
     // itself be "replaced" (edited in place with no newer record, or its successor was
     // since deleted) -- that's shown as Renovado, not checked for overdue-ness here.
-    val hasOverdue = latestPerVaccine(doses.orEmpty()).any { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true } ||
+    val hasOverdue = latestPerVaccine(doses.orEmpty()).any { !isVaccineDoseFinal(it.status) && dueStatus(it.nextDueOn)?.isOverdue == true } ||
         latestPerProduct(applications.orEmpty()).any { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true }
 
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {

@@ -10,6 +10,10 @@ data class CreateVaccineDoseRequest(
     @SerialName("next_due_on") val nextDueOn: String? = null,
     @SerialName("lot_number") val lotNumber: String? = null,
     val notes: String? = null,
+    // Set when the user answered "No" to the overdue-next-due-date confirmation dialog
+    // (the date is in the past, but it isn't actually pending anymore) -- the backend
+    // saves the dose as COMPLETED instead of ACTIVE (VaccineDoseSerializer.create).
+    @SerialName("mark_completed") val markCompleted: Boolean = false,
 )
 
 // Same per-vaccine shape as CreateVaccineDoseRequest, reused as-is for

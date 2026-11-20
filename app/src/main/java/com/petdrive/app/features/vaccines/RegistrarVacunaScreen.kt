@@ -157,7 +157,9 @@ private fun VacunaFormContent(
     // Only meaningful for a brand-new dose (not edit/draft) whose "Próxima vacunación"
     // was backdated into the past -- asks for confirmation before creating it, since the
     // dose will otherwise silently show up as "Vencido" (computed from this same date vs
-    // today, see PetActivityContent.kt's dueStatus()) the moment it's saved.
+    // today, see PetActivityContent.kt's dueStatus()) the moment it's saved. "Sí" (still
+    // pending) saves normally; "No" (not pending anymore) saves with markCompleted so the
+    // dose is stored as COMPLETED instead of ACTIVE (shown as "Completada").
     var pendingOverdueConfirmDate by remember { mutableStateOf<LocalDate?>(null) }
 
     // Recomputed every recomposition (cheap) so it reacts immediately to either date
@@ -282,7 +284,18 @@ private fun VacunaFormContent(
                 }) { Text("Sí") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingOverdueConfirmDate = null }) { Text("No") }
+                TextButton(onClick = {
+                    pendingOverdueConfirmDate = null
+                    viewModel.createVacuna(
+                        petId = selectedPet!!.id,
+                        vaccineName = vacunaAplicada,
+                        appliedOnIso = date.toString(),
+                        nextDueOnIso = nextDueDate?.toString(),
+                        lotNumber = lote,
+                        notes = observaciones,
+                        markCompleted = true,
+                    )
+                }) { Text("No") }
             },
         )
     }

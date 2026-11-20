@@ -404,9 +404,9 @@ private fun ActivityRow(item: ActivityItem, onClick: (ActivityItem) -> Unit) {
                 null
             }
             when {
-                item.status == "replaced" -> {
+                item.status == "replaced" || item.status == "completed" -> {
                     Spacer(modifier = Modifier.width(8.dp))
-                    RenovadoPill()
+                    RenovadoPill(label = if (item.status == "completed") "Completada" else "Renovado")
                 }
                 dueInfo != null -> {
                     Spacer(modifier = Modifier.width(8.dp))
@@ -417,16 +417,18 @@ private fun ActivityRow(item: ActivityItem, onClick: (ActivityItem) -> Unit) {
     }
 }
 
-// A vaccine/deworming record superseded by a newer one of the same vaccine/type --
-// still visible in Actividad's full history, but clearly marked as no longer current.
+// A vaccine/deworming record superseded by a newer one of the same vaccine/type
+// ("Renovado"), or a vaccine dose the user told the overdue-confirmation dialog wasn't
+// actually pending ("Completada", vaccines only) -- either way still visible in
+// Actividad's full history, but clearly marked as no longer current.
 @Composable
-private fun RenovadoPill() {
+private fun RenovadoPill(label: String = "Renovado") {
     Surface(
         shape = RoundedCornerShape(50),
         color = Color(0xFFEFEFEF),
     ) {
         Text(
-            text = "Renovado",
+            text = label,
             color = Color(0xFF666666),
             fontWeight = FontWeight.Bold,
             fontSize = 11.sp,
