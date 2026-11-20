@@ -305,9 +305,11 @@ fun CapturarDocumentoScreen(
     }
 }
 
-private data class ScanTypeOption(val option: DocumentTypeOption, val label: String, val icon: ImageVector, val iconColor: Color)
+// internal (not private): reused by SubirArchivoScreen.kt so "Subir archivo" asks for the
+// document type with the same list/step before picking a file, mirroring this scan flow.
+internal data class ScanTypeOption(val option: DocumentTypeOption, val label: String, val icon: ImageVector, val iconColor: Color)
 
-private val ScanTypeOptions = listOf(
+internal val ScanTypeOptions = listOf(
     ScanTypeOption(DocumentTypeOption.VACCINE_CARD, "Cartilla / Pasaporte", Icons.Filled.Person, BrandGreen),
     ScanTypeOption(DocumentTypeOption.LABWORK, "Análisis / Laboratorio", Icons.Filled.Science, BrandGreen),
     ScanTypeOption(DocumentTypeOption.PRESCRIPTION, "Receta", Icons.Filled.Description, BrandGreen),
@@ -316,8 +318,9 @@ private val ScanTypeOptions = listOf(
 )
 
 // paso1: only "Cartilla / Pasaporte" goes through the AI afterward -- see feature.md.
+// internal: also used by SubirArchivoScreen.kt as its paso0.
 @Composable
-private fun DocumentTypeSelectionStep(
+internal fun DocumentTypeSelectionStep(
     selectedPet: Pet?,
     userFullName: String?,
     onBack: () -> Unit,
