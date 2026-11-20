@@ -42,12 +42,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -266,20 +272,50 @@ private fun RenovadoPill() {
     DueStatusPill(label = "Renovado", color = Color(0xFF666666))
 }
 
+private val pillBaseFontSize = 12.sp
+private val pillHorizontalPadding = 14.dp
+
 @Composable
 private fun DueStatusPill(label: String, color: Color) {
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val style = TextStyle(fontWeight = FontWeight.Bold, fontSize = pillBaseFontSize)
+    // Fixed pill width, sized to fit "Vencido"/"Al día" -- the two states that actually
+    // drive the due-date UI. "Renovado" (a longer word, shown only for superseded
+    // records) shrinks its font to fit this same width instead of stretching the pill
+    // past the other two states.
+    val targetTextWidthPx = remember {
+        maxOf(
+            textMeasurer.measure(AnnotatedString("Vencido"), style).size.width,
+            textMeasurer.measure(AnnotatedString("Al día"), style).size.width,
+        )
+    }
+    val labelWidthPx = remember(label) { textMeasurer.measure(AnnotatedString(label), style).size.width }
+    val fontSize = if (labelWidthPx > targetTextWidthPx) {
+        pillBaseFontSize * (targetTextWidthPx.toFloat() / labelWidthPx.toFloat())
+    } else {
+        pillBaseFontSize
+    }
+    val pillWidth = with(density) { targetTextWidthPx.toDp() } + pillHorizontalPadding * 2
+
     Surface(
         shape = RoundedCornerShape(50),
         color = Color.White,
         border = BorderStroke(1.5.dp, color),
     ) {
-        Text(
-            text = label,
-            color = color,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-        )
+        Box(
+            modifier = Modifier.width(pillWidth).padding(vertical = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                color = color,
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSize,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
