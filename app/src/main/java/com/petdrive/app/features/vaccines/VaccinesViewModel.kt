@@ -218,6 +218,7 @@ class VaccinesViewModel : ViewModel() {
         nextDueOnIso: String?,
         lotNumber: String?,
         notes: String?,
+        markCompleted: Boolean = false,
     ) {
         _updateState.value = UpdateVaccineDoseUiState.Loading
         viewModelScope.launch {
@@ -230,6 +231,7 @@ class VaccinesViewModel : ViewModel() {
                         nextDueOn = nextDueOnIso,
                         lotNumber = lotNumber?.takeIf { it.isNotBlank() },
                         notes = notes?.takeIf { it.isNotBlank() },
+                        markCompleted = markCompleted,
                     ),
                 )
                 _updateState.value = UpdateVaccineDoseUiState.Success(dose)

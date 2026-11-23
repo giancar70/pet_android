@@ -33,6 +33,10 @@ data class UpdateVaccineDoseRequest(
     @SerialName("next_due_on") val nextDueOn: String? = null,
     @SerialName("lot_number") val lotNumber: String? = null,
     val notes: String? = null,
+    // Set when the user answered "No" to the edit flow's own overdue-next-due-date
+    // confirmation dialog -- the backend saves the dose as COMPLETED instead of the
+    // normal REPLACED-on-next_due_on-change (VaccineDoseSerializer.update).
+    @SerialName("mark_completed") val markCompleted: Boolean = false,
 )
 
 @Serializable

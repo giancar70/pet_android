@@ -265,6 +265,36 @@ private fun VacunaFormContent(
         }
     }
 
+    // Shared by the main Guardar button's immediate-save path and the overdue-date
+    // dialog's two buttons below -- markCompleted is only ever true from that dialog's
+    // "No". existingVacuna selects PATCH (edit) vs POST (create); the draft-save path
+    // never reaches here (it returns straight from the button's own onClick).
+    fun saveVacuna(markCompleted: Boolean) {
+        val petId = selectedPet!!.id
+        if (existingVacuna != null) {
+            viewModel.updateVacuna(
+                petId = petId,
+                doseId = existingVacuna.id,
+                vaccineName = vacunaAplicada,
+                appliedOnIso = date.toString(),
+                nextDueOnIso = nextDueDate?.toString(),
+                lotNumber = lote,
+                notes = observaciones,
+                markCompleted = markCompleted,
+            )
+        } else {
+            viewModel.createVacuna(
+                petId = petId,
+                vaccineName = vacunaAplicada,
+                appliedOnIso = date.toString(),
+                nextDueOnIso = nextDueDate?.toString(),
+                lotNumber = lote,
+                notes = observaciones,
+                markCompleted = markCompleted,
+            )
+        }
+    }
+
     pendingOverdueConfirmDate?.let { confirmDate ->
         AlertDialog(
             onDismissRequest = { pendingOverdueConfirmDate = null },
@@ -273,28 +303,13 @@ private fun VacunaFormContent(
             confirmButton = {
                 TextButton(onClick = {
                     pendingOverdueConfirmDate = null
-                    viewModel.createVacuna(
-                        petId = selectedPet!!.id,
-                        vaccineName = vacunaAplicada,
-                        appliedOnIso = date.toString(),
-                        nextDueOnIso = nextDueDate?.toString(),
-                        lotNumber = lote,
-                        notes = observaciones,
-                    )
+                    saveVacuna(markCompleted = false)
                 }) { Text("Sí") }
             },
             dismissButton = {
                 TextButton(onClick = {
                     pendingOverdueConfirmDate = null
-                    viewModel.createVacuna(
-                        petId = selectedPet!!.id,
-                        vaccineName = vacunaAplicada,
-                        appliedOnIso = date.toString(),
-                        nextDueOnIso = nextDueDate?.toString(),
-                        lotNumber = lote,
-                        notes = observaciones,
-                        markCompleted = true,
-                    )
+                    saveVacuna(markCompleted = true)
                 }) { Text("No") }
             },
         )
@@ -487,42 +502,25 @@ private fun VacunaFormContent(
                     when {
                         vacunaAplicada.isBlank() -> validationError = "Ingresa el nombre de la vacuna aplicada."
                         existingVacuna == null && onDraftSaved == null && petId == null -> validationError = "Agrega una mascota primero."
-                        existingVacuna == null && onDraftSaved == null && nextDueDate != null && nextDueDate!!.isBefore(LocalDate.now()) -> {
+                        onDraftSaved == null && nextDueDate != null && nextDueDate!!.isBefore(LocalDate.now()) -> {
                             validationError = null
                             pendingOverdueConfirmDate = nextDueDate
                         }
                         else -> {
                             validationError = null
-                            when {
-                                existingVacuna != null -> viewModel.updateVacuna(
-                                    petId = petId!!,
-                                    doseId = existingVacuna.id,
-                                    vaccineName = vacunaAplicada,
-                                    appliedOnIso = date.toString(),
-                                    nextDueOnIso = nextDueDate?.toString(),
-                                    lotNumber = lote,
-                                    notes = observaciones,
+                            if (onDraftSaved != null) {
+                                onDraftSaved(
+                                    VaccineDraft(
+                                        vaccineName = vacunaAplicada,
+                                        appliedOn = date.toString(),
+                                        nextDueOn = nextDueDate?.toString(),
+                                        lotNumber = lote.takeIf { it.isNotBlank() },
+                                        notes = observaciones.takeIf { it.isNotBlank() },
+                                    ),
                                 )
-                                onDraftSaved != null -> {
-                                    onDraftSaved(
-                                        VaccineDraft(
-                                            vaccineName = vacunaAplicada,
-                                            appliedOn = date.toString(),
-                                            nextDueOn = nextDueDate?.toString(),
-                                            lotNumber = lote.takeIf { it.isNotBlank() },
-                                            notes = observaciones.takeIf { it.isNotBlank() },
-                                        ),
-                                    )
-                                    onBack()
-                                }
-                                else -> viewModel.createVacuna(
-                                    petId = petId!!,
-                                    vaccineName = vacunaAplicada,
-                                    appliedOnIso = date.toString(),
-                                    nextDueOnIso = nextDueDate?.toString(),
-                                    lotNumber = lote,
-                                    notes = observaciones,
-                                )
+                                onBack()
+                            } else {
+                                saveVacuna(markCompleted = false)
                             }
                         }
                     }
