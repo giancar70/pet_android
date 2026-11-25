@@ -11,6 +11,11 @@ data class CreateDewormingApplicationRequest(
     @SerialName("duration_months") val durationMonths: Int? = null,
     @SerialName("product_name") val productName: String? = null,
     val notes: String? = null,
+    // Set when the user answered "No" to the overdue-next-due-date confirmation dialog
+    // (the date is in the past, but it isn't actually pending anymore) -- the backend
+    // saves the application as COMPLETED instead of ACTIVE
+    // (DewormingApplicationSerializer.create).
+    @SerialName("mark_completed") val markCompleted: Boolean = false,
 )
 
 // Same per-application shape as CreateDewormingApplicationRequest, reused as-is for
@@ -31,6 +36,10 @@ data class UpdateDewormingApplicationRequest(
     @SerialName("duration_months") val durationMonths: Int? = null,
     @SerialName("product_name") val productName: String? = null,
     val notes: String? = null,
+    // Set when the user answered "No" to the edit flow's own overdue-next-due-date
+    // confirmation dialog -- the backend saves the application as COMPLETED instead of
+    // the normal REPLACED-on-next_due_on-change (DewormingApplicationSerializer.update).
+    @SerialName("mark_completed") val markCompleted: Boolean = false,
 )
 
 @Serializable

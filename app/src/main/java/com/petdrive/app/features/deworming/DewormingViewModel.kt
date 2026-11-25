@@ -125,6 +125,7 @@ class DewormingViewModel : ViewModel() {
         durationMonths: Int?,
         productName: String?,
         notes: String?,
+        markCompleted: Boolean = false,
     ) {
         _createState.value = CreateDewormingUiState.Loading
         viewModelScope.launch {
@@ -136,6 +137,7 @@ class DewormingViewModel : ViewModel() {
                     durationMonths = durationMonths,
                     productName = productName?.takeIf { it.isNotBlank() },
                     notes = notes?.takeIf { it.isNotBlank() },
+                    markCompleted = markCompleted,
                 )
                 val application: DewormingApplication =
                     ApiClient.post(ApiEndpoints.petDewormingApplications(petId), request)
@@ -221,6 +223,7 @@ class DewormingViewModel : ViewModel() {
         durationMonths: Int?,
         productName: String?,
         notes: String?,
+        markCompleted: Boolean = false,
     ) {
         _updateState.value = UpdateDewormingUiState.Loading
         viewModelScope.launch {
@@ -234,6 +237,7 @@ class DewormingViewModel : ViewModel() {
                         durationMonths = durationMonths,
                         productName = productName?.takeIf { it.isNotBlank() },
                         notes = notes?.takeIf { it.isNotBlank() },
+                        markCompleted = markCompleted,
                     ),
                 )
                 _updateState.value = UpdateDewormingUiState.Success(application)

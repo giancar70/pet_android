@@ -195,7 +195,12 @@ private fun DesparasitacionFormContent(
             ?.minOrNull()
     }
 
-    fun submit() {
+    // Shared by the main Guardar button's immediate-save path and the overdue-date
+    // dialog's two buttons below -- markCompleted is only ever true from that dialog's
+    // "No". existingDesparasitacion selects PATCH (edit) vs POST (create); the
+    // draft-save path never reaches here (it returns straight from the button's own
+    // onClick).
+    fun submit(markCompleted: Boolean) {
         val petId = selectedPet?.id ?: return
         if (existingDesparasitacion != null) {
             viewModel.updateDesparasitacion(
@@ -207,6 +212,7 @@ private fun DesparasitacionFormContent(
                 durationMonths = null,
                 productName = producto,
                 notes = observaciones,
+                markCompleted = markCompleted,
             )
         } else {
             viewModel.createDesparasitacion(
@@ -217,6 +223,7 @@ private fun DesparasitacionFormContent(
                 durationMonths = null,
                 productName = producto,
                 notes = observaciones,
+                markCompleted = markCompleted,
             )
         }
     }
@@ -325,7 +332,7 @@ private fun DesparasitacionFormContent(
             confirmButton = {
                 TextButton(onClick = {
                     pendingWarningDate = null
-                    submit()
+                    submit(markCompleted = false)
                 }) { Text("Registrar igualmente") }
             },
             dismissButton = {
@@ -342,11 +349,14 @@ private fun DesparasitacionFormContent(
             confirmButton = {
                 TextButton(onClick = {
                     pendingOverdueConfirmDate = null
-                    submit()
+                    submit(markCompleted = false)
                 }) { Text("Sí") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingOverdueConfirmDate = null }) { Text("No") }
+                TextButton(onClick = {
+                    pendingOverdueConfirmDate = null
+                    submit(markCompleted = true)
+                }) { Text("No") }
             },
         )
     }
@@ -532,10 +542,6 @@ private fun DesparasitacionFormContent(
                             validationError = "Agrega una mascota primero."
                         nextDueOn == null ->
                             validationError = "Selecciona la próxima fecha prevista."
-                        existingDesparasitacion != null -> {
-                            validationError = null
-                            submit()
-                        }
                         onDraftSaved != null -> {
                             validationError = null
                             onDraftSaved(
@@ -554,13 +560,17 @@ private fun DesparasitacionFormContent(
                             validationError = null
                             pendingOverdueConfirmDate = nextDueOn
                         }
+                        existingDesparasitacion != null -> {
+                            validationError = null
+                            submit(markCompleted = false)
+                        }
                         upcomingDueDate != null -> {
                             validationError = null
                             pendingWarningDate = upcomingDueDate
                         }
                         else -> {
                             validationError = null
-                            submit()
+                            submit(markCompleted = false)
                         }
                     }
                 },

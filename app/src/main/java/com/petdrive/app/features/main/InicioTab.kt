@@ -160,7 +160,7 @@ private fun TodoAlDiaBadge(
     // itself be "replaced" (edited in place with no newer record, or its successor was
     // since deleted) -- that's shown as Renovado, not checked for overdue-ness here.
     val hasOverdue = latestPerVaccine(doses.orEmpty()).any { !isVaccineDoseFinal(it.status) && dueStatus(it.nextDueOn)?.isOverdue == true } ||
-        latestPerProduct(applications.orEmpty()).any { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true }
+        latestPerProduct(applications.orEmpty()).any { !isDewormingFinal(it.status) && dueStatus(it.nextDueOn)?.isOverdue == true }
 
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
         Surface(

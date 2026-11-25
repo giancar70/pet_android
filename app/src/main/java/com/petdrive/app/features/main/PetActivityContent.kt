@@ -197,11 +197,16 @@ private fun <T> homeLimit(items: List<T>, isOverdue: (T) -> Boolean): Int {
 // COMPLETED status.
 internal fun isVaccineDoseFinal(status: String): Boolean = status == "replaced" || status == "completed"
 
+// Deworming counterpart of isVaccineDoseFinal -- "completed" is shown as "Completada"
+// here too, set via the overdue-confirmation dialog's "No"
+// (DewormingApplicationSerializer's mark_completed handling).
+internal fun isDewormingFinal(status: String): Boolean = status == "replaced" || status == "completed"
+
 private fun isVaccineOverdue(dose: VaccineDose): Boolean =
     !isVaccineDoseFinal(dose.status) && dueStatus(dose.nextDueOn)?.isOverdue == true
 
 private fun isDewormingOverdue(application: DewormingApplication): Boolean =
-    application.status != "replaced" && dueStatus(application.nextDueOn)?.isOverdue == true
+    !isDewormingFinal(application.status) && dueStatus(application.nextDueOn)?.isOverdue == true
 
 @Composable
 private fun VaccinesSection(
@@ -383,7 +388,7 @@ internal fun latestPerProduct(applications: List<DewormingApplication>): List<De
     .values
     .map { group -> group.maxBy { application -> Instant.parse(application.createdAt) } }
     .sortedWith(
-        compareByDescending<DewormingApplication> { it.status != "replaced" && dueStatus(it.nextDueOn)?.isOverdue == true }
+        compareByDescending<DewormingApplication> { !isDewormingFinal(it.status) && dueStatus(it.nextDueOn)?.isOverdue == true }
             .thenByDescending { Instant.parse(it.createdAt) }
     )
 
@@ -418,13 +423,13 @@ private fun DewormingSection(state: DewormingListUiState, onAnadirDesparasitacio
 private fun DewormingRow(application: DewormingApplication, onClick: () -> Unit) {
     val title = application.productName?.takeIf { it.isNotBlank() } ?: "Desparasitación"
     // See VaccineRow's identical check above.
-    if (application.status == "replaced") {
+    if (isDewormingFinal(application.status)) {
         RecordRow(
             icon = Icons.Filled.Medication,
             title = title,
             subtitle = formatIsoDate(application.appliedOn),
             onClick = onClick,
-            trailing = { RenovadoPill() },
+            trailing = { if (application.status == "completed") CompletadaPill() else RenovadoPill() },
         )
         return
     }
